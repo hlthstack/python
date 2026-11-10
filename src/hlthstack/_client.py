@@ -7,14 +7,21 @@ import httpx
 
 from ._base_client import (
     DEFAULT_TIMEOUT,
-    TOKEN_PATH,
     BaseClient,
     Params,
     Part,
+    TokenSlot,
     parse_response,
 )
 from ._exceptions import APIConnectionError
-from ._sync_resources import Appointments, Consultations, Pharmacy, Testing, Wallet
+from ._sync_resources import (
+    Appointments,
+    Consultations,
+    Pharmacy,
+    PreRegistration,
+    Testing,
+    Wallet,
+)
 from .types import AccessToken
 
 
@@ -26,7 +33,8 @@ class Hlthstack(BaseClient):
     when done (or use it as a context manager).
 
     Args:
-        username: API username issued by hlthstack.
+        username: API username issued by hlthstack. Required unless you only use
+            ``pre_registration``.
         password: API password issued by hlthstack.
         environment: ``"production"`` (default) or ``"staging"``.
         base_url: Override the environment's base URL.
@@ -34,18 +42,23 @@ class Hlthstack(BaseClient):
             (sent as ``API-ENTITY-ID``). Every method also accepts ``entity_id=``.
         secret_key: API secret key, required with ``entity_id`` (sent as ``API-SECRET-KEY``).
         timeout: Request timeout in seconds, or an ``httpx.Timeout``.
+        pre_registration_username: Pre-registration login (an email) issued by hlthstack.
+            Needed only for ``client.pre_registration``.
+        pre_registration_password: Pre-registration password.
     """
 
     def __init__(
         self,
         *,
-        username: str,
-        password: str,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
         environment: str = "production",
         base_url: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
         timeout: Union[float, httpx.Timeout] = DEFAULT_TIMEOUT,
+        pre_registration_username: Optional[str] = None,
+        pre_registration_password: Optional[str] = None,
     ) -> None:
         super().__init__(
             username=username,
@@ -55,6 +68,8 @@ class Hlthstack(BaseClient):
             entity_id=entity_id,
             secret_key=secret_key,
             timeout=timeout,
+            pre_registration_username=pre_registration_username,
+            pre_registration_password=pre_registration_password,
         )
         self._http = httpx.Client(**self._http_options())
         self._lock = threading.Lock()
@@ -66,6 +81,8 @@ class Hlthstack(BaseClient):
         """ePharmacy: medicines, prescription digitization, cart and orders."""
         self.wallet = Wallet(self)
         """Member benefit wallets and plan subscriptions."""
+        self.pre_registration = PreRegistration(self)
+        """Bulk member and dependant registration (uses the pre-registration credentials)."""
         self.testing = Testing(self)
         """Staging-only lifecycle simulators. Not available in production."""
 
@@ -74,25 +91,29 @@ class Hlthstack(BaseClient):
 
         You don't need to call this: the client fetches and refreshes tokens on its own.
         """
-        with self._lock:
-            return cast(AccessToken, self._fetch_token())
+        return cast(AccessToken, self._new_token(pre_registration=False))
 
-    def _fetch_token(self) -> Any:
+    def _new_token(self, *, pre_registration: bool) -> Any:
+        with self._lock:
+            return self._fetch_token(self._token_slot(pre_registration))
+
+    def _fetch_token(self, slot: TokenSlot) -> Any:
+        credentials = slot.credentials()
         try:
-            response = self._http.get(TOKEN_PATH, auth=self._auth)
+            response = self._http.get(slot.path, auth=credentials)
         except httpx.HTTPError as exc:
             raise APIConnectionError(f"Request failed: {exc}") from exc
-        return self._store_token(response)
+        return self._store_token(slot, response)
 
-    def _access_token(self, stale: Optional[str] = None) -> str:
-        token = self._cached_token(stale)
+    def _access_token(self, slot: TokenSlot, stale: Optional[str] = None) -> str:
+        token = self._cached_token(slot, stale)
         if token:
             return token
         with self._lock:
-            token = self._cached_token(stale)
+            token = self._cached_token(slot, stale)
             if token:
                 return token
-            return str(self._fetch_token()["access_token"])
+            return str((self._fetch_token(slot))["access_token"])
 
     def _request(
         self,
@@ -106,8 +127,10 @@ class Hlthstack(BaseClient):
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
         binary: bool = False,
+        pre_registration: bool = False,
     ) -> Any:
-        token = self._access_token()
+        slot = self._token_slot(pre_registration)
+        token = self._access_token(slot)
         for attempt in range(2):
             try:
                 response = self._http.request(
@@ -116,13 +139,13 @@ class Hlthstack(BaseClient):
                     params=params,
                     json=json,
                     files=files,
-                    headers=self._headers(token, entity_id, secret_key, headers),
+                    headers=self._headers(token, entity_id, secret_key, headers, pre_registration),
                 )
             except httpx.HTTPError as exc:
                 raise APIConnectionError(f"Request failed: {exc}") from exc
             if response.status_code != 401 or attempt == 1:
                 break
-            token = self._access_token(stale=token)
+            token = self._access_token(slot, stale=token)
         return parse_response(response, binary=binary)
 
     def close(self) -> None:

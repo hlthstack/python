@@ -757,3 +757,175 @@ class CustomerPlansData(TypedDict):
 class CustomerPlansResponse(TypedDict):
     status: Literal["success"]
     data: CustomerPlansData
+
+
+# --------------------------------------------------------------------------- pre-registration
+
+
+class PreRegistrationAccessToken(TypedDict):
+    access_token: str
+    expires_at: str
+    """UTC, formatted ``2026-01-15 07:16:21 UTC`` (not ISO 8601)."""
+
+
+class _VoluntaryPlanSubscriptionRequired(TypedDict):
+    plan_id: str
+
+
+class VoluntaryPlanSubscription(_VoluntaryPlanSubscriptionRequired, total=False):
+    start_date: str
+    additional: bool
+    subscription_id: str
+
+
+VoluntaryPlanEntry = Union[str, VoluntaryPlanSubscription]
+"""A plan id, or a :class:`VoluntaryPlanSubscription` naming one subscription."""
+
+
+class _PreRegistrationEmployeeRequired(TypedDict):
+    # Every key here must be present, even when empty: rows missing one are dropped silently.
+    company_id: Union[str, int]
+    employee_code: Optional[str]
+    first_name: str
+    last_name: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    mobile_number: Optional[str]
+    vip: Optional[str]
+    entity_name: Optional[str]
+    employee_office_location: Optional[str]
+    department: Optional[str]
+    grade: Optional[str]
+    date_of_joining: Optional[str]
+
+
+class PreRegistrationEmployee(_PreRegistrationEmployeeRequired, total=False):
+    """A member to register. Send ``email``, or a non-empty ``employee_code``."""
+
+    email: Optional[str]
+    api_customer_id: Optional[str]
+    voluntary_plan_ids: list[VoluntaryPlanEntry]
+
+
+class _PreRegistrationDependantRequired(TypedDict):
+    # Every key here must be present, even when empty: rows missing one are dropped silently.
+    first_name: str
+    last_name: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    mobile_number: Optional[str]
+    relation: Optional[str]
+
+
+class PreRegistrationDependant(_PreRegistrationDependantRequired, total=False):
+    """A dependant, linked by ``guardian_email`` or ``company_id`` + ``guardian_employee_code``."""
+
+    guardian_email: Optional[str]
+    company_id: Union[str, int, None]
+    guardian_employee_code: Optional[str]
+    dependent_code: Optional[str]
+    email: Optional[str]
+    api_customer_id: Optional[str]
+    authorised_dependent: Optional[str]
+
+
+class PreRegistrationEmployeeUpdate(TypedDict, total=False):
+    """Identify by ``email``, or ``company_id`` + ``employee_code``; add the fields to change."""
+
+    email: str
+    company_id: Union[str, int]
+    employee_code: Optional[str]
+    first_name: str
+    last_name: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    mobile_number: Optional[str]
+    vip: Optional[str]
+    entity_name: Optional[str]
+    employee_office_location: Optional[str]
+    department: Optional[str]
+    grade: Optional[str]
+    date_of_joining: Optional[str]
+    api_customer_id: Optional[str]
+    voluntary_plan_ids: list[VoluntaryPlanEntry]
+
+
+class PreRegistrationDependantUpdate(TypedDict, total=False):
+    """Identify by ``api_customer_id`` / ``dependent_code`` (with the guardian) or mobile."""
+
+    guardian_email: str
+    company_id: Union[str, int]
+    guardian_employee_code: str
+    api_customer_id: str
+    dependent_code: str
+    mobile_number: str
+    first_name: str
+    last_name: Optional[str]
+    email: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    relation: str
+    authorised_dependent: str
+
+
+class PreRegistrationAccepted(TypedDict):
+    message: str
+    request_id: str
+
+
+class PreRegistrationCustomerPlan(TypedDict, total=False):
+    customer_plan_id: int
+    subscription_id: Optional[str]
+    plan_id: Optional[str]
+    plan_name: Optional[str]
+    start_date: str
+    end_date: str
+    grace_end_date: str
+    status: Literal["active", "upcoming", "grace"]
+
+
+class PreRegistrationSuccessRecord(TypedDict, total=False):
+    employee_code: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    mobile_number: Optional[str]
+    vip: Literal["Yes", "No"]
+    entity_name: Optional[str]
+    employee_office_location: Optional[str]
+    department: Optional[str]
+    customer_token: Optional[str]
+    errors: list[str]
+    grade: Optional[str]
+    guardian_email: Optional[str]
+    relation: Optional[str]
+    customer_plans: list[PreRegistrationCustomerPlan]
+    status: Literal["Active", "Inactive"]
+
+
+class PreRegistrationFailureRecord(TypedDict, total=False):
+    """Create/update rows echo their fields; deactivate rows carry ``errors`` only."""
+
+    employee_code: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+    date_of_birth: Optional[str]
+    gender: Optional[str]
+    mobile_number: Optional[str]
+    vip: Optional[str]
+    entity_name: Optional[str]
+    employee_office_location: Optional[str]
+    department: Optional[str]
+    guardian_email: Optional[str]
+    errors: list[str]
+
+
+class PreRegistrationStatus(TypedDict):
+    request_id: str
+    status: Literal["initialized", "scheduled", "inprogress", "completed", "failed"]
+    success_records: list[PreRegistrationSuccessRecord]
+    failure_records: list[PreRegistrationFailureRecord]
+    created_at: str

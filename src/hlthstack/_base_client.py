@@ -19,6 +19,7 @@ ENVIRONMENTS = {
 }
 DEFAULT_TIMEOUT = 60.0
 TOKEN_PATH = "/api/get-access-token"
+PRE_REGISTRATION_TOKEN_PATH = "/api/pre_registration/access-token"
 # Tokens live 1 hour; refresh this many seconds before ``expires_at``.
 TOKEN_REFRESH_MARGIN = 300.0
 TOKEN_LIFETIME = 3600.0
@@ -42,20 +43,50 @@ Params = dict[str, Any]
 Part = tuple[str, tuple[Optional[str], bytes, Optional[str]]]
 
 
+class TokenSlot:
+    """One kind of access token: where it comes from, its credentials and the cached value."""
+
+    def __init__(
+        self, path: str, username: Optional[str], password: Optional[str], names: str
+    ) -> None:
+        self.path = path
+        self.auth = (username, password) if username and password else None
+        self.names = names
+        self.token: Optional[str] = None
+        self.refresh_at = 0.0
+
+    def credentials(self) -> tuple[str, str]:
+        if self.auth is None:
+            raise ValueError(f"{self.names} are required for this call")
+        return self.auth
+
+
 class BaseClient:
     def __init__(
         self,
         *,
-        username: str,
-        password: str,
+        username: Optional[str],
+        password: Optional[str],
         environment: str,
         base_url: Optional[str],
         entity_id: Optional[str],
         secret_key: Optional[str],
         timeout: Union[float, httpx.Timeout],
+        pre_registration_username: Optional[str] = None,
+        pre_registration_password: Optional[str] = None,
     ) -> None:
-        if not username or not password:
-            raise ValueError("username and password are required")
+        self._tokens = TokenSlot(TOKEN_PATH, username, password, "username and password")
+        self._pre_registration_tokens = TokenSlot(
+            PRE_REGISTRATION_TOKEN_PATH,
+            pre_registration_username,
+            pre_registration_password,
+            "pre_registration_username and pre_registration_password",
+        )
+        if self._tokens.auth is None and self._pre_registration_tokens.auth is None:
+            raise ValueError(
+                "username and password are required "
+                "(or pre_registration_username and pre_registration_password)"
+            )
         if base_url is None:
             if environment not in ENVIRONMENTS:
                 raise ValueError(
@@ -67,11 +98,8 @@ class BaseClient:
         self.environment = environment
         self.base_url = base_url.rstrip("/")
         self.entity_id = entity_id
-        self._auth = (username, password)
         self._secret_key = secret_key
         self._timeout = timeout
-        self._token: Optional[str] = None
-        self._token_refresh_at = 0.0
 
     def _http_options(self) -> dict[str, Any]:
         return {
@@ -82,25 +110,32 @@ class BaseClient:
 
     # ------------------------------------------------------------------ auth
 
-    def _cached_token(self, stale: Optional[str]) -> Optional[str]:
+    def _token_slot(self, pre_registration: bool) -> TokenSlot:
+        return self._pre_registration_tokens if pre_registration else self._tokens
+
+    @staticmethod
+    def _cached_token(slot: TokenSlot, stale: Optional[str]) -> Optional[str]:
         """The cached token if it is fresh and is not the one that was just rejected."""
-        if self._token and self._token != stale and time.time() < self._token_refresh_at:
-            return self._token
+        if slot.token and slot.token != stale and time.time() < slot.refresh_at:
+            return slot.token
         return None
 
-    def _store_token(self, response: httpx.Response) -> Any:
+    @staticmethod
+    def _store_token(slot: TokenSlot, response: httpx.Response) -> Any:
         data = parse_response(response, binary=False)
         now = time.time()
         expires_at = now + TOKEN_LIFETIME
         try:
-            parsed = dt.datetime.fromisoformat(str(data["expires_at"]).replace("Z", "+00:00"))
+            # ISO 8601, or "2026-01-15 07:16:21 UTC" from the pre-registration token endpoint.
+            raw = str(data["expires_at"]).replace("Z", "+00:00").replace(" UTC", "+00:00")
+            parsed = dt.datetime.fromisoformat(raw)
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=dt.timezone.utc)
             expires_at = min(expires_at, parsed.timestamp())
         except (KeyError, ValueError):
             pass
-        self._token = str(data["access_token"])
-        self._token_refresh_at = expires_at - TOKEN_REFRESH_MARGIN
+        slot.token = str(data["access_token"])
+        slot.refresh_at = expires_at - TOKEN_REFRESH_MARGIN
         return data
 
     def _headers(
@@ -109,7 +144,11 @@ class BaseClient:
         entity_id: Optional[str],
         secret_key: Optional[str],
         extra: Optional[Mapping[str, str]],
+        pre_registration: bool = False,
     ) -> dict[str, str]:
+        if pre_registration:
+            # Pre-registration takes its token as X-EKINCARE-KEY and no entity headers.
+            return {"X-EKINCARE-KEY": token, **(extra or {})}
         headers = {"Authorization": f"Bearer {token}"}
         entity_id = entity_id or self.entity_id
         if entity_id:

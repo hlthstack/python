@@ -27,6 +27,12 @@ def router() -> Iterator[respx.MockRouter]:
         mock.get("/api/get-access-token", name="token").mock(
             side_effect=lambda request: token_response(f"token-{next(counter)}")
         )
+        pre_registration_counter = itertools.count(1)
+        mock.get("/api/pre_registration/access-token", name="pre_registration_token").mock(
+            side_effect=lambda request: token_response(
+                f"prereg-token-{next(pre_registration_counter)}"
+            )
+        )
         yield mock
 
 

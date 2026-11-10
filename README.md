@@ -2,8 +2,8 @@
 
 The official Python client for the [hlthstack](https://www.hlthstack.io/) partner REST API:
 book health checkups and lab tests, in-clinic and online doctor consultations and ePharmacy
-orders for your members, read their benefit wallets, and verify the webhooks hlthstack
-sends you.
+orders for your members, read their benefit wallets, pre-register members and their
+dependants, and verify the webhooks hlthstack sends you.
 
 - Sync (`Hlthstack`) and async (`AsyncHlthstack`) clients with the same methods
 - Access tokens fetched, cached and refreshed for you
@@ -118,13 +118,15 @@ asyncio.run(main())
 
 ```python
 Hlthstack(
-    username="...",  # API username issued by hlthstack
+    username="...",  # API username issued by hlthstack (not needed for pre-registration only)
     password="...",  # API password issued by hlthstack
     environment="production",  # or "staging"
     base_url=None,  # override the environment's URL
     entity_id=None,  # multi-entity partners: default entity to act for
     secret_key=None,  # API secret key; required with entity_id
     timeout=60.0,  # seconds, or an httpx.Timeout
+    pre_registration_username=None,  # pre-registration login (an email), for client.pre_registration
+    pre_registration_password=None,
 )
 ```
 
@@ -151,6 +153,11 @@ fetches a new token and retries that call once. Token refreshes are shared betwe
 (sync client) or tasks (async client). `client.get_access_token()` fetches a token
 explicitly if you need one.
 
+`client.pre_registration` uses separate credentials (`pre_registration_username` /
+`pre_registration_password`) and its own token, requested from
+`GET /api/pre_registration/access-token`, sent as `X-EKINCARE-KEY`, and cached and refreshed
+the same way. `client.pre_registration.get_access_token()` fetches one explicitly.
+
 ### Multi-entity partners
 
 Pass `entity_id` and `secret_key` to act for another entity on every call; the client sends
@@ -169,8 +176,8 @@ Without `entity_id`, calls act for the entity tied to your credentials.
 Methods map one-to-one to the operations in the
 [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml).
 Path parameters are positional; everything else is a keyword argument named as in the
-spec. Optional arguments left as `None` are not sent. Every method also takes `entity_id=`
-and `secret_key=`.
+spec. Optional arguments left as `None` are not sent. Every method except the
+`pre_registration` ones also takes `entity_id=` and `secret_key=`.
 
 | Namespace | Methods (operationId) |
 |---|---|
@@ -179,6 +186,7 @@ and `secret_key=`.
 | `client.consultations` | `list_inclinic_providers` (listInclinicConsultationProviders), `list_specialist_providers` (listSpecialistConsultationProviders), `list_slots` (listSlots), `create_inclinic` (createInclinicConsultation), `create_specialist` (createSpecialistConsultation), `get_inclinic` (getInclinicConsultation), `get_specialist` (getSpecialistConsultation), `reschedule` (rescheduleConsultation), `cancel` (cancelConsultation), `get_summary_and_prescription` (getConsultationSummaryAndPrescription), `get_voucher` (getConsultationVoucher), `upload_documents` (uploadConsultationDocuments) |
 | `client.pharmacy` | `search_medicines` (searchMedicines), `digitize_prescription` (digitizePrescription), `get_prescription_digitization` (getPrescriptionDigitization), `get_cart` (getCart), `update_cart` (updateCart), `get_fulfillment_options` (getFulfillmentOptions), `get_order_payment_details` (getOrderPaymentDetails), `create_order` (createOrder), `list_orders` (listOrders), `get_order` (getOrder), `cancel_order` (cancelOrder), `confirm_order` (confirmOrder) |
 | `client.wallet` | `get_customer_wallet` (getCustomerWallet), `list_customer_plans` (listCustomerPlans) |
+| `client.pre_registration` | `get_access_token` (getPreRegistrationAccessToken), `create` (createPreRegistrations), `update` (updatePreRegistrations), `deactivate` (deactivatePreRegistrations), `get_status` (getPreRegistrationStatus) |
 | `client.testing` | **Staging only.** `simulate_appointment_status` (simulateAppointmentStatus), `simulate_consultation_status` (simulateConsultationStatus), `simulate_order_status` (simulateOrderStatus) |
 
 A few conveniences on top of the raw API:
@@ -228,6 +236,60 @@ pdf = client.appointments.get_voucher("APT1A2B3C4D5")
 with open("voucher.pdf", "wb") as f:
     f.write(pdf)
 ```
+
+### Pre-registration
+
+Register, update and deactivate members (employees) and their dependants in bulk, at most
+250 rows per call. Each write returns a `request_id`; poll `get_status` until `status` is
+`completed`, then read `success_records` and `failure_records`:
+
+```python
+import os
+import time
+from hlthstack import Hlthstack
+
+client = Hlthstack(
+    pre_registration_username=os.environ["HLTHSTACK_PREREG_USERNAME"],
+    pre_registration_password=os.environ["HLTHSTACK_PREREG_PASSWORD"],
+    environment="staging",
+)
+
+accepted = client.pre_registration.create(
+    employees=[
+        {
+            "employee_code": "EMP1001",
+            "company_id": "1001",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "email": "jane.doe@example.com",
+            "date_of_birth": "24-08-1990",
+            "gender": "Female",
+            "mobile_number": "9999999999",
+            "vip": "No",
+            "entity_name": "",
+            "employee_office_location": "Hyderabad",
+            "department": "Engineering",
+            "grade": "B",
+            "date_of_joining": "01-01-2026",
+        }
+    ],
+)
+status = client.pre_registration.get_status(accepted["request_id"])
+while status["status"] != "completed":
+    time.sleep(5)
+    status = client.pre_registration.get_status(accepted["request_id"])
+for record in status["failure_records"]:
+    print(record.get("email"), record["errors"])
+
+client.pre_registration.update(employees=[{"email": "jane.doe@example.com", "grade": "C"}])
+client.pre_registration.deactivate(employees=["jane.doe@example.com"])
+```
+
+On `create`, every key the `PreRegistrationEmployee` / `PreRegistrationDependant` types mark
+required must be present in each row, even when empty: the API silently drops rows that miss
+one. `update` takes the identifier and only the fields to change; `deactivate` takes employee
+emails and dependant mobile numbers. See the
+[pre-registration guide](https://github.com/hlthstack/integration-guide/blob/main/docs/pre-registration.md).
 
 ### Testing on staging
 

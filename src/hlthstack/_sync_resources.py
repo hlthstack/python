@@ -5,7 +5,8 @@
 generated from it. Edit the async file, then run ``python scripts/unasync.py``.
 
 Every method accepts ``entity_id=`` and ``secret_key=`` to act for another entity on that
-call (multi-entity partners); they default to the client's settings.
+call (multi-entity partners); they default to the client's settings. The pre-registration
+methods are the exception: they use their own token and name the company in each row.
 """
 
 from collections.abc import Sequence
@@ -64,6 +65,13 @@ from .types import (
     PartialResult,
     PaymentDetailsCustomer,
     PharmacyAddress,
+    PreRegistrationAccepted,
+    PreRegistrationAccessToken,
+    PreRegistrationDependant,
+    PreRegistrationDependantUpdate,
+    PreRegistrationEmployee,
+    PreRegistrationEmployeeUpdate,
+    PreRegistrationStatus,
     ProvidersResponse,
     SimulateOrderStatusResponse,
     SlotsResponse,
@@ -78,6 +86,7 @@ __all__ = [
     "Appointments",
     "Consultations",
     "Pharmacy",
+    "PreRegistration",
     "Testing",
     "Wallet",
 ]
@@ -1329,6 +1338,104 @@ class Wallet(_Resource):
                 params=query({"api_customer_id": api_customer_id, "customer_id": customer_id}),
                 entity_id=entity_id,
                 secret_key=secret_key,
+            ),
+        )
+
+
+class PreRegistration(_Resource):
+    """Register, update and deactivate members and their dependants in bulk.
+
+    Uses the pre-registration credentials (``pre_registration_username`` /
+    ``pre_registration_password``); their token is sent as ``X-EKINCARE-KEY``. Writes are
+    processed asynchronously: each returns a ``request_id`` to poll with ``get_status``.
+    At most 250 rows per call.
+    """
+
+    def get_access_token(self) -> PreRegistrationAccessToken:
+        """Fetch a new pre-registration token (``getPreRegistrationAccessToken``) and cache it.
+
+        ``GET /api/pre_registration/access-token``. You don't need to call this: the client
+        fetches and refreshes the token on its own.
+        """
+        token = self._client._new_token(pre_registration=True)
+        return cast(PreRegistrationAccessToken, token)
+
+    def create(
+        self,
+        *,
+        employees: Optional[Sequence[PreRegistrationEmployee]] = None,
+        dependants: Optional[Sequence[PreRegistrationDependant]] = None,
+    ) -> PreRegistrationAccepted:
+        """Pre-register members and dependants (``createPreRegistrations``).
+
+        ``POST /v1/corporate/pre_registrations``. Every required key must be present in each
+        row, even when empty: the API silently drops rows that miss one.
+        """
+        return cast(
+            PreRegistrationAccepted,
+            self._client._request(
+                "POST",
+                "/v1/corporate/pre_registrations",
+                json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
+                pre_registration=True,
+            ),
+        )
+
+    def update(
+        self,
+        *,
+        employees: Optional[Sequence[PreRegistrationEmployeeUpdate]] = None,
+        dependants: Optional[Sequence[PreRegistrationDependantUpdate]] = None,
+    ) -> PreRegistrationAccepted:
+        """Update registered members and dependants (``updatePreRegistrations``).
+
+        ``POST /v1/corporate/pre_registrations/update``. Send each row's identifier and only
+        the fields to change.
+        """
+        return cast(
+            PreRegistrationAccepted,
+            self._client._request(
+                "POST",
+                "/v1/corporate/pre_registrations/update",
+                json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
+                pre_registration=True,
+            ),
+        )
+
+    def deactivate(
+        self,
+        *,
+        employees: Optional[Sequence[str]] = None,
+        dependants: Optional[Sequence[str]] = None,
+    ) -> PreRegistrationAccepted:
+        """Deactivate members or dependants (``deactivatePreRegistrations``).
+
+        ``POST /v1/corporate/pre_registrations/deactivate``. ``employees`` are emails,
+        ``dependants`` are mobile numbers. Deactivating an employee deactivates their
+        dependants too.
+        """
+        return cast(
+            PreRegistrationAccepted,
+            self._client._request(
+                "POST",
+                "/v1/corporate/pre_registrations/deactivate",
+                json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
+                pre_registration=True,
+            ),
+        )
+
+    def get_status(self, request_id: str) -> PreRegistrationStatus:
+        """Get the outcome of a create, update or deactivate call (``getPreRegistrationStatus``).
+
+        ``GET /v1/corporate/pre_registrations/{request_id}/status``. Poll until ``status`` is
+        ``completed``.
+        """
+        return cast(
+            PreRegistrationStatus,
+            self._client._request(
+                "GET",
+                path("/v1/corporate/pre_registrations/{}/status", request_id),
+                pre_registration=True,
             ),
         )
 
