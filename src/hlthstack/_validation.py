@@ -260,9 +260,9 @@ def _parse_date(value: str) -> Optional[dt.date]:
         return None
 
 
-def _parse_date_time(value: str, *, require_offset: bool) -> Optional[dt.datetime]:
+def _parse_date_time(value: str) -> Optional[dt.datetime]:
     match = _DATE_TIME.fullmatch(value)
-    if not match or (require_offset and not match.group(8)):
+    if not match:
         return None
     year, month, day, hour, minute, second = (int(g) for g in match.groups()[:6])
     fraction, offset = match.group(7), match.group(8)
@@ -285,9 +285,10 @@ def _parse_date_time(value: str, *, require_offset: bool) -> Optional[dt.datetim
 
 _FORMATS: dict[str, tuple[Callable[[str], bool], str]] = {
     "date": (lambda v: _parse_date(v) is not None, "must be a date (YYYY-MM-DD)"),
+    # The offset is optional: the API reads a date-time without one as IST.
     "date-time": (
-        lambda v: _parse_date_time(v, require_offset=True) is not None,
-        "must be a date-time with a UTC offset (for example 2026-01-15T02:30:00Z)",
+        lambda v: _parse_date_time(v) is not None,
+        "must be an ISO 8601 date-time (for example 2026-01-15T02:30:00Z)",
     ),
     "uri": (lambda v: _URI.fullmatch(v) is not None, "must be an absolute URI"),
     "uuid": (lambda v: _UUID.fullmatch(v) is not None, "must be a UUID"),
@@ -495,7 +496,7 @@ def _rule_date(value: str, fmt: str) -> Any:
     if fmt == "date":
         return _parse_date(value)
     if fmt == "date-time":
-        return _parse_date_time(value, require_offset=False)
+        return _parse_date_time(value)
     match = _DMY.fullmatch(value.strip())  # dd-mm-yyyy or dd/mm/yyyy
     if not match:
         return None
