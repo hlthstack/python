@@ -114,7 +114,7 @@ async def test_async_multipart(router: respx.MockRouter, async_client: AsyncHlth
     )
     async with async_client as client:
         await client.consultations.upload_documents(
-            "APT1A2B3C4D5", [("Report", io.BytesIO(b"%PDF"))]
+            "APT1A2B3C4D5", [("Report", ("report.pdf", io.BytesIO(b"%PDF")))]
         )
     parts = parse_multipart(route.calls.last.request)
     assert [(p.name, p.data) for p in parts] == [

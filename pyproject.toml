@@ -34,7 +34,14 @@ Source = "https://github.com/hlthstack/python"
 Issues = "https://github.com/hlthstack/python/issues"
 
 [dependency-groups]
-dev = ["pytest>=8", "respx>=0.21", "ruff>=0.6", "mypy>=1.10"]
+dev = [
+  "pytest>=8",
+  "respx>=0.21",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "pyyaml>=6",
+  "types-pyyaml>=6",
+]
 
 [tool.hatch.version]
 path = "src/hlthstack/_version.py"
@@ -43,7 +50,7 @@ path = "src/hlthstack/_version.py"
 packages = ["src/hlthstack"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/hlthstack", "tests", "scripts", "README.md", "LICENSE"]
+include = ["src/hlthstack", "tests", "scripts", "openapi", "README.md", "LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -54,6 +61,10 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Generated: long strings copied from the OpenAPI spec.
+"src/hlthstack/_validation_spec.py" = ["E501"]
 
 [tool.mypy]
 strict = true

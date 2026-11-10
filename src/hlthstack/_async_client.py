@@ -45,6 +45,7 @@ class AsyncHlthstack(BaseClient):
         timeout: Union[float, httpx.Timeout] = DEFAULT_TIMEOUT,
         pre_registration_username: Optional[str] = None,
         pre_registration_password: Optional[str] = None,
+        validate: bool = True,
     ) -> None:
         super().__init__(
             username=username,
@@ -56,6 +57,7 @@ class AsyncHlthstack(BaseClient):
             timeout=timeout,
             pre_registration_username=pre_registration_username,
             pre_registration_password=pre_registration_password,
+            validate=validate,
         )
         self._http = httpx.AsyncClient(**self._http_options())
         # Created on first use, inside the running event loop (Python 3.9 binds locks to
@@ -121,7 +123,10 @@ class AsyncHlthstack(BaseClient):
         secret_key: Optional[str] = None,
         binary: bool = False,
         pre_registration: bool = False,
+        operation: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> Any:
+        self._validate_request(operation, validate, url, params, json, files)
         slot = self._token_slot(pre_registration)
         token = await self._access_token(slot)
         for attempt in range(2):

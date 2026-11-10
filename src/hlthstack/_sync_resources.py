@@ -7,9 +7,12 @@ generated from it. Edit the async file, then run ``python scripts/unasync.py``.
 Every method accepts ``entity_id=`` and ``secret_key=`` to act for another entity on that
 call (multi-entity partners); they default to the client's settings. The pre-registration
 methods are the exception: they use their own token and name the company in each row.
+
+Every method that calls the API also accepts ``validate=`` to turn client-side request
+validation on or off for that call; it defaults to the client's ``validate`` setting.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, Optional, Union, cast
 
 from ._base_client import (
@@ -117,6 +120,7 @@ class _Slots(_Resource):
         plan_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> SlotsResponse:
         """List bookable slots for one provider (``listSlots``).
 
@@ -130,6 +134,8 @@ class _Slots(_Resource):
             self._client._request(
                 "GET",
                 path("/api/providers/{}/{}/slots", provider_id, benefit_type),
+                operation="listSlots",
+                validate=validate,
                 params=query(
                     {
                         "package_ids": join_ids(package_ids),
@@ -171,6 +177,7 @@ class Appointments(_Slots):
         api_customer_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ProvidersResponse:
         """Find providers for a service and packages near a location (``listProviders``).
 
@@ -182,6 +189,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 "/api/providers",
+                operation="listProviders",
+                validate=validate,
                 params=query(
                     {
                         "service_name": service_name,
@@ -220,6 +229,7 @@ class Appointments(_Slots):
         api_partner_order_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CreateAppointmentResponse:
         """Book an appointment for one or more members (``createAppointment``).
 
@@ -232,6 +242,8 @@ class Appointments(_Slots):
             self._client._request(
                 "POST",
                 "/api/appointments",
+                operation="createAppointment",
+                validate=validate,
                 json=compact(
                     {
                         "service_name": service_name,
@@ -258,6 +270,7 @@ class Appointments(_Slots):
         appointment_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> BookingDetails:
         """Get a booking, or one appointment in it (``getAppointment``).
 
@@ -268,6 +281,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 "/api/appointments",
+                operation="getAppointment",
+                validate=validate,
                 params=query({"booking_id": booking_id, "appointment_id": appointment_id}),
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -284,6 +299,7 @@ class Appointments(_Slots):
         status: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CustomerAppointmentsResponse:
         """List a member's appointments (``listCustomerAppointments``).
 
@@ -294,6 +310,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 "/api/appointments/customer_appointments",
+                operation="listCustomerAppointments",
+                validate=validate,
                 params=query(
                     {
                         "api_customer_id": api_customer_id,
@@ -320,6 +338,7 @@ class Appointments(_Slots):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> AppointmentPaymentDetailsResponse:
         """Price a booking before creating it (``getAppointmentPaymentDetails``).
 
@@ -330,6 +349,8 @@ class Appointments(_Slots):
             self._client._request(
                 "POST",
                 "/api/appointments/payment_details",
+                operation="getAppointmentPaymentDetails",
+                validate=validate,
                 json=compact(
                     {
                         "provider_id": provider_id,
@@ -355,6 +376,7 @@ class Appointments(_Slots):
         address: Optional[BookingAddress] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> PartialResult:
         """Reschedule every appointment in a booking (``rescheduleBooking``).
 
@@ -366,6 +388,8 @@ class Appointments(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/bookings/{}/reschedule", booking_id),
+                operation="rescheduleBooking",
+                validate=validate,
                 json=compact(
                     {
                         "appointment_date_time": datetime_utc(appointment_date_time),
@@ -384,6 +408,7 @@ class Appointments(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> PartialResult:
         """Cancel every appointment in a booking (``cancelBooking``).
 
@@ -394,6 +419,8 @@ class Appointments(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/bookings/{}/cancel", booking_id),
+                operation="cancelBooking",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -408,6 +435,7 @@ class Appointments(_Slots):
         address: Optional[BookingAddress] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessageResponse:
         """Reschedule one appointment (``rescheduleAppointment``).
 
@@ -418,6 +446,8 @@ class Appointments(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/appointments/{}/reschedule", appointment_id),
+                operation="rescheduleAppointment",
+                validate=validate,
                 json=compact(
                     {
                         "appointment_date_time": datetime_utc(appointment_date_time),
@@ -436,6 +466,7 @@ class Appointments(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessageResponse:
         """Cancel one appointment (``cancelAppointment``).
 
@@ -446,6 +477,8 @@ class Appointments(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/appointments/{}/cancel", appointment_id),
+                operation="cancelAppointment",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -457,6 +490,7 @@ class Appointments(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> bytes:
         """Download the appointment voucher PDF (``getAppointmentVoucher``).
 
@@ -467,6 +501,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 path("/api/appointments/{}/voucher", appointment_id),
+                operation="getAppointmentVoucher",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
                 binary=True,
@@ -479,6 +515,7 @@ class Appointments(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> AppointmentReportsResponse:
         """Get report links (``getAppointmentReports``).
 
@@ -489,6 +526,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 path("/api/appointments/{}/reports", appointment_id),
+                operation="getAppointmentReports",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -500,6 +539,7 @@ class Appointments(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> LabResults:
         """Get digitized lab results (``getAppointmentLabResults``).
 
@@ -510,6 +550,8 @@ class Appointments(_Slots):
             self._client._request(
                 "GET",
                 path("/api/appointments/{}/lab_results", appointment_id),
+                operation="getAppointmentLabResults",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -536,6 +578,7 @@ class Consultations(_Slots):
         api_customer_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ProvidersResponse:
         """Find in-clinic doctors (``listInclinicConsultationProviders``).
 
@@ -547,6 +590,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 "/api/consultations/inclinic_consultation/providers",
+                operation="listInclinicConsultationProviders",
+                validate=validate,
                 params=query(
                     {
                         "package_ids": join_ids(package_ids),
@@ -578,6 +623,7 @@ class Consultations(_Slots):
         per_page: Optional[int] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ProvidersResponse:
         """Find online specialists (``listSpecialistConsultationProviders``).
 
@@ -589,6 +635,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 "/api/consultations/specialist_consultation/providers",
+                operation="listSpecialistConsultationProviders",
+                validate=validate,
                 params=query(
                     {
                         "package_ids": join_ids(package_ids),
@@ -616,6 +664,7 @@ class Consultations(_Slots):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CreateConsultationResponse:
         """Book an in-clinic consultation (``createInclinicConsultation``).
 
@@ -626,6 +675,8 @@ class Consultations(_Slots):
             self._client._request(
                 "POST",
                 "/api/consultations/inclinic_consultation",
+                operation="createInclinicConsultation",
+                validate=validate,
                 json=compact(
                     {
                         "appointment_date_time": datetime_utc(appointment_date_time),
@@ -656,6 +707,7 @@ class Consultations(_Slots):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CreateConsultationResponse:
         """Book an online specialist consultation (``createSpecialistConsultation``).
 
@@ -667,6 +719,8 @@ class Consultations(_Slots):
             self._client._request(
                 "POST",
                 "/api/consultations/specialist_consultation",
+                operation="createSpecialistConsultation",
+                validate=validate,
                 json=compact(
                     {
                         "appointment_date_time": datetime_utc(appointment_date_time),
@@ -690,6 +744,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ConsultationDetails:
         """Get an in-clinic consultation (``getInclinicConsultation``).
 
@@ -700,6 +755,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 path("/api/consultations/inclinic_consultation/{}", appointment_id),
+                operation="getInclinicConsultation",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -711,6 +768,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ConsultationDetails:
         """Get an online specialist consultation (``getSpecialistConsultation``).
 
@@ -721,6 +779,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 path("/api/consultations/specialist_consultation/{}", appointment_id),
+                operation="getSpecialistConsultation",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -733,6 +793,7 @@ class Consultations(_Slots):
         appointment_date_time: DateTime,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessageResponse:
         """Reschedule a consultation with the same doctor (``rescheduleConsultation``).
 
@@ -743,6 +804,8 @@ class Consultations(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/consultations/{}/reschedule", appointment_id),
+                operation="rescheduleConsultation",
+                validate=validate,
                 json={"appointment_date_time": datetime_utc(appointment_date_time)},
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -755,6 +818,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ConsultationCancelResponse:
         """Cancel a consultation (``cancelConsultation``).
 
@@ -765,6 +829,8 @@ class Consultations(_Slots):
             self._client._request(
                 "PATCH",
                 path("/api/consultations/{}/cancel", appointment_id),
+                operation="cancelConsultation",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -776,6 +842,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> SummaryAndPrescription:
         """Get the consultation summary and prescriptions
         (``getConsultationSummaryAndPrescription``).
@@ -787,6 +854,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 path("/api/consultations/{}/summary_and_prescription", appointment_id),
+                operation="getConsultationSummaryAndPrescription",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -798,6 +867,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> bytes:
         """Download an in-clinic consultation voucher PDF (``getConsultationVoucher``).
 
@@ -808,6 +878,8 @@ class Consultations(_Slots):
             self._client._request(
                 "GET",
                 path("/api/consultations/{}/voucher", appointment_id),
+                operation="getConsultationVoucher",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
                 binary=True,
@@ -821,6 +893,7 @@ class Consultations(_Slots):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessageResponse:
         """Share the member's documents with the doctor (``uploadConsultationDocuments``).
 
@@ -837,6 +910,8 @@ class Consultations(_Slots):
             self._client._request(
                 "POST",
                 path("/api/consultations/{}/upload_documents", appointment_id),
+                operation="uploadConsultationDocuments",
+                validate=validate,
                 files=parts,
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -854,6 +929,7 @@ class Pharmacy(_Resource):
         page: Optional[int] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MedicineSearchResponse:
         """Search medicines by name, at least 3 characters (``searchMedicines``).
 
@@ -864,6 +940,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 "/api/epharmacy/medicines/search",
+                operation="searchMedicines",
+                validate=validate,
                 params=query({"name": name, "page": page}),
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -879,6 +957,7 @@ class Pharmacy(_Resource):
         idempotency_key: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> DigitizationAccepted:
         """Upload a prescription for digitization (``digitizePrescription``).
 
@@ -887,12 +966,12 @@ class Pharmacy(_Resource):
         paths, bytes, binary file objects or ``(filename, content[, content_type])`` tuples.
         Pass ``idempotency_key`` to make retries safe. Returns ``202`` with a ``request_id``.
         """
+        # A missing field is left out of the form, so validation can report it.
+        fields: Mapping[str, object] = customer
         parts = [
-            text_part("customers[][name]", customer["name"]),
-            text_part("customers[][api_customer_id]", customer["api_customer_id"]),
-            text_part("customers[][mobile_number]", customer["mobile_number"]),
-            text_part("customers[][gender]", customer["gender"]),
-            text_part("customers[][dob]", customer["dob"]),
+            text_part(f"customers[][{key}]", str(fields[key]))
+            for key in ("name", "api_customer_id", "mobile_number", "gender", "dob")
+            if fields.get(key) is not None
         ]
         if plan_id is not None:
             parts.append(text_part("plan_id", plan_id))
@@ -903,6 +982,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "POST",
                 "/api/prescriptions/digitize",
+                operation="digitizePrescription",
+                validate=validate,
                 files=parts,
                 headers=headers,
                 entity_id=entity_id,
@@ -916,6 +997,7 @@ class Pharmacy(_Resource):
         *,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> DigitizationStatus:
         """Get a digitization request's status (``getPrescriptionDigitization``).
 
@@ -926,6 +1008,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 path("/api/prescriptions/digitize/{}", request_id),
+                operation="getPrescriptionDigitization",
+                validate=validate,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -938,6 +1022,7 @@ class Pharmacy(_Resource):
         plan_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CartResponse:
         """Get the member's cart (``getCart``).
 
@@ -949,6 +1034,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 "/api/epharmacy/cart",
+                operation="getCart",
+                validate=validate,
                 params=query(
                     {"customer_details[api_customer_id]": api_customer_id, "plan_id": plan_id}
                 ),
@@ -973,6 +1060,7 @@ class Pharmacy(_Resource):
         prescription_files: Optional[Sequence[FileInput]] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CartResponse:
         """Create or update the member's cart (``updateCart``).
 
@@ -1012,6 +1100,8 @@ class Pharmacy(_Resource):
                 self._client._request(
                     "PATCH",
                     "/api/epharmacy/cart",
+                    operation="updateCart",
+                    validate=validate,
                     files=parts,
                     entity_id=entity_id,
                     secret_key=secret_key,
@@ -1022,6 +1112,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "PATCH",
                 "/api/epharmacy/cart",
+                operation="updateCart",
+                validate=validate,
                 json=compact(
                     {
                         "plan_id": plan_id,
@@ -1049,6 +1141,7 @@ class Pharmacy(_Resource):
         plan_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> FulfillmentOptions:
         """Get live delivery and store-pickup options for a cart (``getFulfillmentOptions``).
 
@@ -1060,6 +1153,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 "/api/epharmacy/fulfillment_options",
+                operation="getFulfillmentOptions",
+                validate=validate,
                 params=query(
                     {
                         "customer_details[api_customer_id]": api_customer_id,
@@ -1085,6 +1180,7 @@ class Pharmacy(_Resource):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> OrderPaymentDetails:
         """Price the cart for a chosen fulfillment option (``getOrderPaymentDetails``).
 
@@ -1096,6 +1192,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "POST",
                 "/api/epharmacy/orders/payment_details",
+                operation="getOrderPaymentDetails",
+                validate=validate,
                 json=compact(
                     {
                         "plan_id": plan_id,
@@ -1128,6 +1226,7 @@ class Pharmacy(_Resource):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CreateOrderResponse:
         """Place an order from the cart (``createOrder``).
 
@@ -1140,6 +1239,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "POST",
                 "/api/epharmacy/orders",
+                operation="createOrder",
+                validate=validate,
                 json=compact(
                     {
                         "plan_id": plan_id,
@@ -1167,6 +1268,7 @@ class Pharmacy(_Resource):
         per_page: Optional[int] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> OrderList:
         """List a member's orders (``listOrders``).
 
@@ -1177,6 +1279,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 "/api/epharmacy/orders",
+                operation="listOrders",
+                validate=validate,
                 params=query(
                     {
                         "customer_details[api_customer_id]": api_customer_id,
@@ -1196,6 +1300,7 @@ class Pharmacy(_Resource):
         api_customer_id: str,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> OrderResponse:
         """Get an order (``getOrder``).
 
@@ -1206,6 +1311,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "GET",
                 path("/api/epharmacy/orders/{}", order_id),
+                operation="getOrder",
+                validate=validate,
                 params=query({"customer_details[api_customer_id]": api_customer_id}),
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -1222,6 +1329,7 @@ class Pharmacy(_Resource):
         message: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CancelOrderResponse:
         """Cancel an order (``cancelOrder``).
 
@@ -1232,6 +1340,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "PATCH",
                 path("/api/epharmacy/orders/{}/cancel", order_id),
+                operation="cancelOrder",
+                validate=validate,
                 json=compact(
                     {
                         "plan_id": plan_id,
@@ -1254,6 +1364,7 @@ class Pharmacy(_Resource):
         partner_payment_reference: str,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> ConfirmOrderResponse:
         """Confirm a partner-collected payment (``confirmOrder``).
 
@@ -1266,6 +1377,8 @@ class Pharmacy(_Resource):
             self._client._request(
                 "POST",
                 path("/api/epharmacy/orders/{}/confirm", order_id),
+                operation="confirmOrder",
+                validate=validate,
                 json={
                     "customer_details": {"api_customer_id": api_customer_id},
                     "partner_collected_amount": partner_collected_amount,
@@ -1291,6 +1404,7 @@ class Wallet(_Resource):
         subscription_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> WalletResponse:
         """Get a member's (and their family's) benefit balances (``getCustomerWallet``).
 
@@ -1302,6 +1416,8 @@ class Wallet(_Resource):
             self._client._request(
                 "GET",
                 path("/api/{}/customers/wallet", company_slug),
+                operation="getCustomerWallet",
+                validate=validate,
                 params=query(
                     {
                         "plan_id": plan_id,
@@ -1324,6 +1440,7 @@ class Wallet(_Resource):
         customer_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> CustomerPlansResponse:
         """List a member's plan subscriptions (``listCustomerPlans``).
 
@@ -1335,6 +1452,8 @@ class Wallet(_Resource):
             self._client._request(
                 "GET",
                 path("/api/{}/customers/plans", company_slug),
+                operation="listCustomerPlans",
+                validate=validate,
                 params=query({"api_customer_id": api_customer_id, "customer_id": customer_id}),
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -1365,6 +1484,7 @@ class PreRegistration(_Resource):
         *,
         employees: Optional[Sequence[PreRegistrationEmployee]] = None,
         dependants: Optional[Sequence[PreRegistrationDependant]] = None,
+        validate: Optional[bool] = None,
     ) -> PreRegistrationAccepted:
         """Pre-register members and dependants (``createPreRegistrations``).
 
@@ -1376,6 +1496,8 @@ class PreRegistration(_Resource):
             self._client._request(
                 "POST",
                 "/v1/corporate/pre_registrations",
+                operation="createPreRegistrations",
+                validate=validate,
                 json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
                 pre_registration=True,
             ),
@@ -1386,6 +1508,7 @@ class PreRegistration(_Resource):
         *,
         employees: Optional[Sequence[PreRegistrationEmployeeUpdate]] = None,
         dependants: Optional[Sequence[PreRegistrationDependantUpdate]] = None,
+        validate: Optional[bool] = None,
     ) -> PreRegistrationAccepted:
         """Update registered members and dependants (``updatePreRegistrations``).
 
@@ -1397,6 +1520,8 @@ class PreRegistration(_Resource):
             self._client._request(
                 "POST",
                 "/v1/corporate/pre_registrations/update",
+                operation="updatePreRegistrations",
+                validate=validate,
                 json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
                 pre_registration=True,
             ),
@@ -1407,6 +1532,7 @@ class PreRegistration(_Resource):
         *,
         employees: Optional[Sequence[str]] = None,
         dependants: Optional[Sequence[str]] = None,
+        validate: Optional[bool] = None,
     ) -> PreRegistrationAccepted:
         """Deactivate members or dependants (``deactivatePreRegistrations``).
 
@@ -1419,12 +1545,16 @@ class PreRegistration(_Resource):
             self._client._request(
                 "POST",
                 "/v1/corporate/pre_registrations/deactivate",
+                operation="deactivatePreRegistrations",
+                validate=validate,
                 json=compact({"employees": _list(employees), "dependants": _list(dependants)}),
                 pre_registration=True,
             ),
         )
 
-    def get_status(self, request_id: str) -> PreRegistrationStatus:
+    def get_status(
+        self, request_id: str, *, validate: Optional[bool] = None
+    ) -> PreRegistrationStatus:
         """Get the outcome of a create, update or deactivate call (``getPreRegistrationStatus``).
 
         ``GET /v1/corporate/pre_registrations/{request_id}/status``. Poll until ``status`` is
@@ -1435,6 +1565,8 @@ class PreRegistration(_Resource):
             self._client._request(
                 "GET",
                 path("/v1/corporate/pre_registrations/{}/status", request_id),
+                operation="getPreRegistrationStatus",
+                validate=validate,
                 pre_registration=True,
             ),
         )
@@ -1454,6 +1586,7 @@ class Testing(_Resource):
         status: AppointmentSimulationStatus,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessagesResponse:
         """(Staging only) Move a health-checkup appointment (``simulateAppointmentStatus``).
 
@@ -1464,6 +1597,8 @@ class Testing(_Resource):
             self._client._request(
                 "POST",
                 path("/api/appointments/{}/update_status", appointment_id),
+                operation="simulateAppointmentStatus",
+                validate=validate,
                 json={"status": status},
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -1478,6 +1613,7 @@ class Testing(_Resource):
         reschedule_time: Optional[DateTime] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> MessagesResponse:
         """(Staging only) Move a consultation (``simulateConsultationStatus``).
 
@@ -1488,6 +1624,8 @@ class Testing(_Resource):
             self._client._request(
                 "PATCH",
                 path("/api/consultations/{}/update_status", appointment_id),
+                operation="simulateConsultationStatus",
+                validate=validate,
                 json=compact({"status": status, "reschedule_time": datetime_utc(reschedule_time)}),
                 entity_id=entity_id,
                 secret_key=secret_key,
@@ -1507,6 +1645,7 @@ class Testing(_Resource):
         tracking_partner: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> SimulateOrderStatusResponse:
         """(Staging only) Move a pharmacy order to an order status (``simulateOrderStatus``).
 
@@ -1517,6 +1656,8 @@ class Testing(_Resource):
             self._client._request(
                 "PATCH",
                 path("/api/epharmacy/orders/{}/update_status", order_id),
+                operation="simulateOrderStatus",
+                validate=validate,
                 json=compact(
                     {
                         "customer_details": {"api_customer_id": api_customer_id},

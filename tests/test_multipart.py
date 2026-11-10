@@ -56,6 +56,8 @@ def test_upload_documents_interleaves_name_value_pairs(
 ) -> None:
     report = tmp_path / "blood.pdf"
     report.write_bytes(b"%PDF blood")
+    xray = io.BytesIO(b"\x89PNG xray")
+    xray.name = "xray.png"
     route = router.post("/api/consultations/APT1A2B3C4D5/upload_documents").respond(
         json={"message": "Document uploaded successfully"}
     )
@@ -63,7 +65,7 @@ def test_upload_documents_interleaves_name_value_pairs(
         "APT1A2B3C4D5",
         [
             ("Blood report", str(report)),
-            ("X-ray", io.BytesIO(b"\x89PNG xray")),
+            ("X-ray", xray),
             ("Scan", ("scan.jpg", b"jpeg-bytes")),
         ],
     )
@@ -73,7 +75,7 @@ def test_upload_documents_interleaves_name_value_pairs(
         ("files[][name]", None),
         ("files[][value]", "blood.pdf"),
         ("files[][name]", None),
-        ("files[][value]", "file"),
+        ("files[][value]", "xray.png"),
         ("files[][name]", None),
         ("files[][value]", "scan.jpg"),
     ]
@@ -119,13 +121,13 @@ def test_update_cart_with_prescription_files(router: respx.MockRouter, client: H
     client.pharmacy.update_cart(
         customer_details={"api_customer_id": "CUST1001"},
         plan_id="EXAMPLE_PLAN",
-        prescription_files=[b"%PDF rx"],
+        prescription_files=[("rx.pdf", b"%PDF rx")],
     )
     parts = parse_multipart(route.calls.last.request)
     assert [(p.name, p.filename, p.data) for p in parts] == [
         ("customer_details[api_customer_id]", None, b"CUST1001"),
         ("plan_id", None, b"EXAMPLE_PLAN"),
-        ("prescription_files[]", "file", b"%PDF rx"),
+        ("prescription_files[]", "rx.pdf", b"%PDF rx"),
     ]
 
 
@@ -150,7 +152,9 @@ def test_multipart_resent_after_401(router: respx.MockRouter, client: Hlthstack)
             httpx.Response(202, json={"request_id": "DIGI_RQ_A1B2C3D4E"}),
         ]
     )
-    client.pharmacy.digitize_prescription(customer=CUSTOMER, files=[io.BytesIO(b"%PDF rx")])
+    client.pharmacy.digitize_prescription(
+        customer=CUSTOMER, files=[("rx.pdf", io.BytesIO(b"%PDF rx"))]
+    )
     assert route.call_count == 2
     first, second = (parse_multipart(c.request) for c in route.calls)
     assert first == second

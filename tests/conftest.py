@@ -11,6 +11,8 @@ from hlthstack import AsyncHlthstack, Hlthstack
 BASE_URL = "https://staging-api.hlthstack.io"
 USERNAME = "test-user"
 PASSWORD = "test-password"
+# "Now" for the date rules of request validation, so fixture dates stay in the future.
+NOW = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
 
 
 def token_response(token: str, lifetime: float = 3600) -> httpx.Response:
@@ -39,6 +41,7 @@ def router() -> Iterator[respx.MockRouter]:
 @pytest.fixture
 def client() -> Iterator[Hlthstack]:
     with Hlthstack(username=USERNAME, password=PASSWORD, environment="staging") as c:
+        c._clock = lambda: NOW
         yield c
 
 
@@ -49,4 +52,6 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 def async_client() -> AsyncHlthstack:
-    return AsyncHlthstack(username=USERNAME, password=PASSWORD, environment="staging")
+    c = AsyncHlthstack(username=USERNAME, password=PASSWORD, environment="staging")
+    c._clock = lambda: NOW
+    return c

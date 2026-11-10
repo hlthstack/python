@@ -5,12 +5,13 @@ import mimetypes
 import os
 import time
 from collections.abc import Mapping, Sequence
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Callable, Optional, Union
 from urllib.parse import quote
 
 import httpx
 
-from ._exceptions import error_from_response
+from ._exceptions import ValidationError, error_from_response
+from ._validation import validate_request
 from ._version import __version__
 
 ENVIRONMENTS = {
@@ -74,6 +75,7 @@ class BaseClient:
         timeout: Union[float, httpx.Timeout],
         pre_registration_username: Optional[str] = None,
         pre_registration_password: Optional[str] = None,
+        validate: bool = True,
     ) -> None:
         self._tokens = TokenSlot(TOKEN_PATH, username, password, "username and password")
         self._pre_registration_tokens = TokenSlot(
@@ -100,6 +102,9 @@ class BaseClient:
         self.entity_id = entity_id
         self._secret_key = secret_key
         self._timeout = timeout
+        self.validate = validate
+        # Read by the date rules of request validation; replaced in tests.
+        self._clock: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.timezone.utc)
 
     def _http_options(self) -> dict[str, Any]:
         return {
@@ -107,6 +112,26 @@ class BaseClient:
             "timeout": self._timeout,
             "headers": {"User-Agent": f"hlthstack-python/{__version__}"},
         }
+
+    # ------------------------------------------------------------------ validation
+
+    def _validate_request(
+        self,
+        operation: Optional[str],
+        validate: Optional[bool],
+        url: str,
+        params: Optional[Params],
+        json: Any,
+        files: Optional[list[Part]],
+    ) -> None:
+        """Raise ``ValidationError`` if the request breaks the API's input rules."""
+        if operation is None or not (self.validate if validate is None else validate):
+            return
+        errors = validate_request(
+            operation, url=url, params=params, json=json, files=files, now=self._clock()
+        )
+        if errors:
+            raise ValidationError(operation, errors)
 
     # ------------------------------------------------------------------ auth
 

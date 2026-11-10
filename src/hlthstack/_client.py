@@ -45,6 +45,9 @@ class Hlthstack(BaseClient):
         pre_registration_username: Pre-registration login (an email) issued by hlthstack.
             Needed only for ``client.pre_registration``.
         pre_registration_password: Pre-registration password.
+        validate: Check each request against the API's input rules before sending it and
+            raise ``ValidationError`` instead of calling the API. Every method also accepts
+            ``validate=`` to override this for one call.
     """
 
     def __init__(
@@ -59,6 +62,7 @@ class Hlthstack(BaseClient):
         timeout: Union[float, httpx.Timeout] = DEFAULT_TIMEOUT,
         pre_registration_username: Optional[str] = None,
         pre_registration_password: Optional[str] = None,
+        validate: bool = True,
     ) -> None:
         super().__init__(
             username=username,
@@ -70,6 +74,7 @@ class Hlthstack(BaseClient):
             timeout=timeout,
             pre_registration_username=pre_registration_username,
             pre_registration_password=pre_registration_password,
+            validate=validate,
         )
         self._http = httpx.Client(**self._http_options())
         self._lock = threading.Lock()
@@ -128,7 +133,10 @@ class Hlthstack(BaseClient):
         secret_key: Optional[str] = None,
         binary: bool = False,
         pre_registration: bool = False,
+        operation: Optional[str] = None,
+        validate: Optional[bool] = None,
     ) -> Any:
+        self._validate_request(operation, validate, url, params, json, files)
         slot = self._token_slot(pre_registration)
         token = self._access_token(slot)
         for attempt in range(2):

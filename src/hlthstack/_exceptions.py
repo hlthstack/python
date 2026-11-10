@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 import httpx
 
@@ -12,6 +12,8 @@ __all__ = [
     "PermissionDeniedError",
     "ServerError",
     "UnprocessableEntityError",
+    "ValidationError",
+    "ValidationErrorDetail",
     "WebhookVerificationError",
 ]
 
@@ -71,6 +73,32 @@ class ServerError(HlthstackError):
 
 class APIConnectionError(HlthstackError):
     """The request did not get a response (network error or timeout)."""
+
+
+class ValidationErrorDetail(TypedDict):
+    """One problem found by client-side validation."""
+
+    path: str
+    """Where the problem is, such as ``customers[0].mobile_number`` (empty: the whole request)."""
+    message: str
+    rule: str
+    """The JSON Schema keyword (``pattern``, ``required``, ...) or rule kind (``required_if``)."""
+
+
+class ValidationError(HlthstackError, ValueError):
+    """The request failed client-side validation and was not sent.
+
+    ``errors`` lists every problem found as ``{"path", "message", "rule"}`` dicts;
+    ``messages`` has the same problems as ``"path: message"`` strings.
+    """
+
+    def __init__(self, operation_id: str, errors: list[ValidationErrorDetail]) -> None:
+        lines = [f"{e['path'] or '(request)'}: {e['message']}" for e in errors]
+        count = f"{len(errors)} problem{'s' if len(errors) != 1 else ''}"
+        detail = "".join(f"\n  - {line} [{e['rule']}]" for line, e in zip(lines, errors))
+        super().__init__(f"Invalid {operation_id} request ({count}):{detail}", messages=lines)
+        self.operation_id = operation_id
+        self.errors = errors
 
 
 class WebhookVerificationError(HlthstackError):

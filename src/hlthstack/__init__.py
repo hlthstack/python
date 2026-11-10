@@ -14,6 +14,8 @@ from ._exceptions import (
     PermissionDeniedError,
     ServerError,
     UnprocessableEntityError,
+    ValidationError,
+    ValidationErrorDetail,
     WebhookVerificationError,
 )
 from ._version import __version__
@@ -32,6 +34,8 @@ __all__ = [
     "PermissionDeniedError",
     "ServerError",
     "UnprocessableEntityError",
+    "ValidationError",
+    "ValidationErrorDetail",
     "WebhookVerificationError",
     "__version__",
     "types",

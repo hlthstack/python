@@ -22,6 +22,7 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: python scripts/unasync.py --check
+      - run: python scripts/build_validation.py --check
 
   test:
     runs-on: ubuntu-latest

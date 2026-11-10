@@ -8,6 +8,8 @@ dependants, and verify the webhooks hlthstack sends you.
 - Sync (`Hlthstack`) and async (`AsyncHlthstack`) clients with the same methods
 - Access tokens fetched, cached and refreshed for you
 - One method per API operation, with `TypedDict` types for requests and responses
+- Every request checked against the API's input rules before it is sent, with all problems
+  reported at once
 - Webhook signature verification with the standard library only
 - Python 3.9+, one dependency ([httpx](https://www.python-httpx.org/))
 
@@ -15,9 +17,26 @@ REST API reference and guides: https://github.com/hlthstack/integration-guide
 
 ## Install
 
+Install the library straight from this GitHub repository:
+
 ```bash
-pip install hlthstack
+pip install "git+https://github.com/hlthstack/python"
 ```
+
+Pin a release tag or a commit so your builds are reproducible:
+
+```bash
+pip install "git+https://github.com/hlthstack/python@<tag-or-commit>"
+```
+
+In `requirements.txt` (append `@<tag-or-commit>` to pin):
+
+```text
+hlthstack @ git+https://github.com/hlthstack/python
+```
+
+The same `hlthstack @ git+https://...` form works in `pyproject.toml` dependencies. A PyPI
+release (`pip install hlthstack`) may follow later; until then, install from GitHub.
 
 ## Quickstart
 
@@ -127,6 +146,7 @@ Hlthstack(
     timeout=60.0,  # seconds, or an httpx.Timeout
     pre_registration_username=None,  # pre-registration login (an email), for client.pre_registration
     pre_registration_password=None,
+    validate=True,  # check requests before sending them (see Validation)
 )
 ```
 
@@ -177,7 +197,8 @@ Methods map one-to-one to the operations in the
 [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml).
 Path parameters are positional; everything else is a keyword argument named as in the
 spec. Optional arguments left as `None` are not sent. Every method except the
-`pre_registration` ones also takes `entity_id=` and `secret_key=`.
+`pre_registration` ones also takes `entity_id=` and `secret_key=`, and every method that
+calls the API takes `validate=` (see [Validation](#validation)).
 
 | Namespace | Methods (operationId) |
 |---|---|
@@ -322,6 +343,7 @@ Non-2xx responses raise a subclass of `hlthstack.HlthstackError`:
 | `ServerError` | 5xx |
 | `HlthstackError` | any other non-2xx status |
 | `APIConnectionError` | network error or timeout (no response) |
+| `ValidationError` | the request breaks the API's input rules; nothing was sent (see [Validation](#validation)) |
 
 Every error has `status_code`, `body` (parsed JSON, or text), `headers`, and `messages`: the
 human-readable messages pulled out of whichever error shape the endpoint uses
@@ -343,6 +365,87 @@ The client does not retry failed calls (other than the single retry after a 401)
 409 and network errors with backoff yourself, and never blindly retry booking creation:
 check `appointments.get` or your webhooks first. Some ePharmacy responses are HTTP 200 with
 `"success": false` nested inside (for example fulfillment options); check those flags.
+
+## Validation
+
+Before a method sends its request, the client checks it against the input rules in the
+[OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml)
+and, if anything is wrong, raises `hlthstack.ValidationError` listing every problem. Nothing
+is sent and no access token is requested. The check runs on the request as it would go out,
+after the method's conversions (package id lists, `datetime`s, `api_customer_id=`).
+
+What is checked:
+
+- **Fields**: required fields, types, allowed values and patterns (mobile numbers, pincodes,
+  member ids, booking and appointment ids, genders, relations, dates in pre-registration
+  rows), string lengths, number ranges, list sizes, and date (`YYYY-MM-DD`), date-time (ISO
+  8601 with an offset, such as `2026-01-15T02:30:00Z`), URI and UUID formats.
+- **Rules across fields**: for example `address` for home collection; `pincode`, or
+  `latitude` and `longitude`; `api_customer_id` or `employee_id`; `address` or `address_id`,
+  not both; `selected_chemist_id` for store pickup; one entry per `api_customer_id` or
+  product id; `sort_by` and `gender` only for in-clinic consultations; no 6-digit number
+  other than the pincode in an Indian address's text fields.
+- **Dates**: members at least one year old, consultation times in the future, dates of birth
+  not in the future (dates are compared with today's date in India).
+- **Files and counts**: upload types, extensions and sizes; at most 250 pre-registration rows
+  per call; a positive `partner_collected_amount`.
+
+```python
+from hlthstack import ValidationError
+
+try:
+    client.appointments.create(
+        service_name="ahc",
+        appointment_type="home_collection",
+        provider_id=1001,
+        appointment_date_time="2026-01-15T02:30:00Z",
+        customers=[
+            {
+                "name": "Jane Doe",
+                "dob": "1990-08-24",
+                "gender": "Female",
+                "mobile_number": "99999 99999",
+                "api_customer_id": "CUST1001",
+                "package_ids": [1001],
+            }
+        ],
+    )
+except ValidationError as e:
+    print(e)
+    for error in e.errors:
+        print(error["path"], error["rule"], error["message"])
+```
+
+```text
+Invalid createAppointment request (3 problems):
+  - customers[0].mobile_number: must match the pattern ^[0-9]{10}$ [pattern]
+  - customers[0].gender: must be one of: male, female, non-binary [enum]
+  - address: address is required when appointment_type is home_collection. [required_if]
+```
+
+`ValidationError` subclasses `HlthstackError` (and `ValueError`). `errors` is a list of
+`{"path", "message", "rule"}` dicts: `path` points into the request (`customers[0].dob`,
+`files[1].value`; empty for the request as a whole) and `rule` is the JSON Schema keyword
+(`required`, `pattern`, ...) or the spec's rule kind (`required_if`, `unique_by`, ...).
+`messages` has the same problems as `"path: message"` strings.
+
+To skip the checks, for example if the API accepts something before this library is
+updated, turn them off for the client or for one call:
+
+```python
+client = Hlthstack(username="...", password="...", validate=False)
+client.appointments.get("EKI0000000001700000000", validate=True)  # check this one call
+
+client = Hlthstack(username="...", password="...")
+client.appointments.get("EKI0000000001700000000", validate=False)  # skip this one call
+```
+
+Checks that need data stored by hlthstack are made by the server and still come back as
+`HlthstackError` subclasses (`BadRequestError`, `NotFoundError`, `UnprocessableEntityError`,
+...): plan benefits and wallet balances, slot availability, provider capabilities, whether a
+member, booking or cart exists and what state it is in, the order's amount to collect,
+password-protected PDFs and files fetched from `prescription_urls`. Pre-registration rows
+are checked again while they are processed and reported in `failure_records`.
 
 ## Webhooks
 
@@ -392,6 +495,11 @@ mypy
 
 `src/hlthstack/_sync_resources.py` is generated from `_async_resources.py`: edit the async
 file, then run `python scripts/unasync.py`.
+
+`src/hlthstack/_validation_spec.py` is generated from `openapi/openapi.yaml` (a copy of the
+integration guide's spec): after updating the spec, run `python scripts/build_validation.py`.
+It fails if the spec uses a schema keyword or rule the validator in `_validation.py` does not
+implement; restate new `x-hlthstack-rules` in the script's `RULES` table.
 
 ## License
 

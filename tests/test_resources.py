@@ -131,7 +131,7 @@ def test_reschedule_and_cancel_booking(router: respx.MockRouter, client: Hlthsta
 
 def test_path_parameters_are_escaped(router: respx.MockRouter, client: Hlthstack) -> None:
     route = router.get("/api/appointments/APT%2F..%2Fx/reports").respond(json={"reports": []})
-    client.appointments.get_reports("APT/../x")
+    client.appointments.get_reports("APT/../x", validate=False)
     assert route.called
 
 
