@@ -41,6 +41,10 @@ dev = [
   "mypy>=1.10",
   "pyyaml>=6",
   "types-pyyaml>=6",
+  # Plain-API examples (examples/api) and their tests; not runtime dependencies.
+  "requests>=2.28",
+  "types-requests>=2.28",
+  "flask>=2.2",
 ]
 
 [tool.hatch.version]
@@ -50,7 +54,7 @@ path = "src/hlthstack/_version.py"
 packages = ["src/hlthstack"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/hlthstack", "tests", "scripts", "openapi", "README.md", "LICENSE"]
+include = ["src/hlthstack", "tests", "scripts", "openapi", "docs", "examples", "README.md", "LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -68,4 +72,4 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.mypy]
 strict = true
-files = ["src/hlthstack", "tests", "scripts"]
+files = ["src/hlthstack", "tests", "scripts", "examples/api"]
