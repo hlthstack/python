@@ -407,7 +407,11 @@ RULES: dict[str, list[dict[str, Any]]] = {
             "rule": "at_least_one_of",
             "description": "Each dependant needs guardian_email, or company_id together with "
             "guardian_employee_code.",
-            "fields": ["dependants[].guardian_email", "dependants[].guardian_employee_code"],
+            "fields": [
+                "dependants[].guardian_email",
+                "dependants[].company_id",
+                "dependants[].guardian_employee_code",
+            ],
             "scope": "dependants[]",
             "groups": [["guardian_email"], ["company_id", "guardian_employee_code"]],
         },
@@ -426,7 +430,7 @@ RULES: dict[str, list[dict[str, Any]]] = {
         {
             "rule": "at_least_one_of",
             "description": "Each employee needs email, or company_id together with employee_code.",
-            "fields": ["employees[].email", "employees[].employee_code"],
+            "fields": ["employees[].email", "employees[].company_id", "employees[].employee_code"],
             "scope": "employees[]",
             "groups": [["email"], ["company_id", "employee_code"]],
         },
