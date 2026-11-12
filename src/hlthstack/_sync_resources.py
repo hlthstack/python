@@ -32,7 +32,6 @@ from ._base_client import (
     text_part,
 )
 from .types import (
-    AppointmentPaymentDetailsResponse,
     AppointmentReportsResponse,
     AppointmentSimulationStatus,
     AppointmentType,
@@ -51,7 +50,6 @@ from .types import (
     CreateAppointmentResponse,
     CreateConsultationResponse,
     CreateOrderResponse,
-    CustomerAppointmentsResponse,
     CustomerPlansResponse,
     DeliveryOption,
     DigitizationAccepted,
@@ -66,7 +64,6 @@ from .types import (
     OrderPaymentDetails,
     OrderResponse,
     PartialResult,
-    PaymentDetailsCustomer,
     PharmacyAddress,
     PreRegistrationAccepted,
     PreRegistrationAccessToken,
@@ -284,84 +281,6 @@ class Appointments(_Slots):
                 operation="getAppointment",
                 validate=validate,
                 params=query({"booking_id": booking_id, "appointment_id": appointment_id}),
-                entity_id=entity_id,
-                secret_key=secret_key,
-            ),
-        )
-
-    def list_customer_appointments(
-        self,
-        *,
-        api_customer_id: Optional[str] = None,
-        employee_id: Optional[str] = None,
-        from_date: Optional[Date] = None,
-        to_date: Optional[Date] = None,
-        status: Optional[str] = None,
-        entity_id: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        validate: Optional[bool] = None,
-    ) -> CustomerAppointmentsResponse:
-        """List a member's appointments (``listCustomerAppointments``).
-
-        ``GET /api/appointments/customer_appointments``.
-        """
-        return cast(
-            CustomerAppointmentsResponse,
-            self._client._request(
-                "GET",
-                "/api/appointments/customer_appointments",
-                operation="listCustomerAppointments",
-                validate=validate,
-                params=query(
-                    {
-                        "api_customer_id": api_customer_id,
-                        "employee_id": employee_id,
-                        "from_date": from_date,
-                        "to_date": to_date,
-                        "status": status,
-                    }
-                ),
-                entity_id=entity_id,
-                secret_key=secret_key,
-            ),
-        )
-
-    def get_payment_details(
-        self,
-        *,
-        provider_id: int,
-        appointment_type: AppointmentType,
-        service_name: str,
-        customers: Sequence[PaymentDetailsCustomer],
-        plan_id: Optional[str] = None,
-        customer_plan_id: Optional[int] = None,
-        subscription_id: Optional[str] = None,
-        entity_id: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        validate: Optional[bool] = None,
-    ) -> AppointmentPaymentDetailsResponse:
-        """Price a booking before creating it (``getAppointmentPaymentDetails``).
-
-        ``POST /api/appointments/payment_details``.
-        """
-        return cast(
-            AppointmentPaymentDetailsResponse,
-            self._client._request(
-                "POST",
-                "/api/appointments/payment_details",
-                operation="getAppointmentPaymentDetails",
-                validate=validate,
-                json=compact(
-                    {
-                        "provider_id": provider_id,
-                        "appointment_type": appointment_type,
-                        "service_name": service_name,
-                        "customers": list(customers),
-                        "plan_id": plan_id,
-                        "customer_plan_id": customer_plan_id,
-                        "subscription_id": subscription_id,
-                    }
-                ),
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),

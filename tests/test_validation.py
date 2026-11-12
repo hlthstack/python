@@ -394,11 +394,9 @@ def test_rule_allowed_only_if() -> None:
 
 
 def test_rule_at_least_one_of() -> None:
-    assert _errors("listCustomerAppointments") == {("", "at_least_one_of")}
-    assert _errors("listCustomerAppointments", params={"employee_id": "  "}) == {
-        ("", "at_least_one_of")
-    }
-    assert _errors("listCustomerAppointments", params={"employee_id": "E1"}) == set()
+    assert _errors("listCustomerPlans") == {("", "at_least_one_of")}
+    assert _errors("listCustomerPlans", params={"customer_id": "  "}) == {("", "at_least_one_of")}
+    assert _errors("listCustomerPlans", params={"customer_id": "1001"}) == set()
     dependants = [
         {"guardian_employee_code": "EMP1"},  # needs company_id too
         {"company_id": "1001", "guardian_employee_code": "EMP1"},
@@ -603,13 +601,6 @@ CASES = [
             ("customers[1].api_customer_id", "unique_by"),
             ("customers[1].mobile_number", "pattern"),
         },
-    ),
-    Case(
-        "appointments.list_customer_appointments",
-        (),
-        {"api_customer_id": "CUST1001", "from_date": dt.date(2026, 1, 1)},
-        {"from_date": "01-01-2026"},
-        {("", "at_least_one_of"), ("from_date", "format")},
     ),
     Case(
         "appointments.reschedule_booking",

@@ -197,28 +197,6 @@ class CreateAppointmentResponse(TypedDict, total=False):
     customers: list[BookedCustomer]
 
 
-class _PaymentDetailsCustomerRequired(TypedDict):
-    api_customer_id: str
-    package_ids: list[int]
-
-
-class PaymentDetailsCustomer(_PaymentDetailsCustomerRequired, total=False):
-    booking_customer: bool
-
-
-class AppointmentPaymentBreakdown(TypedDict, total=False):
-    total_amount: float
-    sponsor_wallet_amount: float
-    customer_wallet_amount: float
-    promotional_wallet_amount: float
-    razorpay_amount: float
-    currency: str
-
-
-class AppointmentPaymentDetailsResponse(TypedDict, total=False):
-    payment_details: AppointmentPaymentBreakdown
-
-
 class AppointmentPayment(TypedDict, total=False):
     status: str
     total_collected_amount: Union[str, float]
@@ -285,10 +263,6 @@ class AppointmentDetails(TypedDict, total=False):
 class BookingDetails(TypedDict, total=False):
     booking_id: str
     service_name: str
-    appointments: list[AppointmentDetails]
-
-
-class CustomerAppointmentsResponse(TypedDict):
     appointments: list[AppointmentDetails]
 
 

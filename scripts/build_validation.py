@@ -182,14 +182,6 @@ RULES: dict[str, list[dict[str, Any]]] = {
             "pincode": ["pincode"],
         },
     ],
-    "listCustomerAppointments": [
-        {
-            "rule": "at_least_one_of",
-            "description": "Send api_customer_id or employee_id.",
-            "fields": ["api_customer_id", "employee_id"],
-            "groups": _either("api_customer_id", "employee_id"),
-        }
-    ],
     "rescheduleBooking": [_reschedule_pincode("booking")],
     "rescheduleAppointment": [_reschedule_pincode("appointment")],
     "listInclinicConsultationProviders": [LOCATION_REQUIRED, VISITED_BEFORE],
