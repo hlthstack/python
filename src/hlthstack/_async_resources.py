@@ -324,13 +324,16 @@ class AsyncAppointments(_AsyncSlots):
         self,
         booking_id: str,
         *,
+        reason: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
         validate: Optional[bool] = None,
     ) -> PartialResult:
         """Cancel every appointment in a booking (``cancelBooking``).
 
-        ``PATCH /api/bookings/{booking_id}/cancel``. May partially succeed.
+        ``PATCH /api/bookings/{booking_id}/cancel``. May partially succeed. ``reason`` (up to
+        255 characters) is recorded as the cancellation reason; without it hlthstack records
+        ``Cancelled by your booking partner``.
         """
         return cast(
             PartialResult,
@@ -339,6 +342,7 @@ class AsyncAppointments(_AsyncSlots):
                 path("/api/bookings/{}/cancel", booking_id),
                 operation="cancelBooking",
                 validate=validate,
+                json=compact({"reason": reason}) or None,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),
@@ -382,13 +386,16 @@ class AsyncAppointments(_AsyncSlots):
         self,
         appointment_id: str,
         *,
+        reason: Optional[str] = None,
         entity_id: Optional[str] = None,
         secret_key: Optional[str] = None,
         validate: Optional[bool] = None,
     ) -> MessageResponse:
         """Cancel one appointment (``cancelAppointment``).
 
-        ``PATCH /api/appointments/{appointment_id}/cancel``.
+        ``PATCH /api/appointments/{appointment_id}/cancel``. ``reason`` (up to 255 characters)
+        is recorded as the cancellation reason; without it hlthstack records ``Cancelled by your
+        booking partner``.
         """
         return cast(
             MessageResponse,
@@ -397,6 +404,7 @@ class AsyncAppointments(_AsyncSlots):
                 path("/api/appointments/{}/cancel", appointment_id),
                 operation="cancelAppointment",
                 validate=validate,
+                json=compact({"reason": reason}) or None,
                 entity_id=entity_id,
                 secret_key=secret_key,
             ),

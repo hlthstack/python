@@ -77,8 +77,8 @@ def reschedule(appointment_id: str, slot_time: str) -> None:
     )
 
 
-def cancel(appointment_id: str) -> None:
-    api("PATCH", f"/api/appointments/{appointment_id}/cancel")
+def cancel(appointment_id: str, reason: str) -> None:
+    api("PATCH", f"/api/appointments/{appointment_id}/cancel", json={"reason": reason})
 
 
 def download_voucher(appointment_id: str, path: str) -> None:
@@ -116,7 +116,7 @@ def main() -> None:
     reschedule(appointment_id, slots[1])
     simulate_confirmation(appointment_id)
     download_voucher(appointment_id, "voucher.pdf")
-    cancel(appointment_id)
+    cancel(appointment_id, "Example clean-up")
     print("rescheduled, confirmed, voucher saved to voucher.pdf, cancelled")
 
 

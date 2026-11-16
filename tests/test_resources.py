@@ -3,9 +3,10 @@ import json
 from typing import Any
 
 import httpx
+import pytest
 import respx
 
-from hlthstack import Hlthstack
+from hlthstack import Hlthstack, ValidationError
 from hlthstack.types import BookingAddress, BookingCustomer, ConsultationCustomer
 
 CUSTOMER: BookingCustomer = {
@@ -127,6 +128,30 @@ def test_reschedule_and_cancel_booking(router: respx.MockRouter, client: Hlthsta
     assert body(resched) == {"appointment_date_time": "2026-01-16T02:30:00Z", "provider_id": 1002}
     client.appointments.cancel("APT1A2B3C4D5")
     assert cancel.calls.last.request.content == b""
+
+
+def test_cancel_sends_an_optional_reason(router: respx.MockRouter, client: Hlthstack) -> None:
+    one = router.patch("/api/appointments/APT1A2B3C4D5/cancel").respond(
+        json={"message": "Appointment cancelled successfully"}
+    )
+    booking = router.patch("/api/bookings/EKI0000000001700000000/cancel").respond(
+        json={"message": "Booking cancelled successfully"}
+    )
+    client.appointments.cancel("APT1A2B3C4D5", reason="Member is travelling")
+    assert body(one) == {"reason": "Member is travelling"}
+    client.appointments.cancel_booking("EKI0000000001700000000", reason="Duplicate booking")
+    assert body(booking) == {"reason": "Duplicate booking"}
+    client.appointments.cancel_booking("EKI0000000001700000000")
+    assert booking.calls.last.request.content == b""
+
+
+def test_cancel_reason_over_255_characters_is_rejected(
+    router: respx.MockRouter, client: Hlthstack
+) -> None:
+    cancel = router.patch("/api/appointments/APT1A2B3C4D5/cancel").respond(json={})
+    with pytest.raises(ValidationError, match="reason"):
+        client.appointments.cancel("APT1A2B3C4D5", reason="x" * 256)
+    assert not cancel.called
 
 
 def test_path_parameters_are_escaped(router: respx.MockRouter, client: Hlthstack) -> None:

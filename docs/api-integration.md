@@ -355,14 +355,15 @@ def reschedule(appointment_id: str, slot_time: str) -> None:
 
 ### 6. Cancel
 
-`PATCH /api/appointments/{appointment_id}/cancel` (or `PATCH /api/bookings/{booking_id}/cancel`),
-with no body. Rescheduling and cancelling are allowed until 30 minutes before the slot (home
+`PATCH /api/appointments/{appointment_id}/cancel` (or `PATCH /api/bookings/{booking_id}/cancel`).
+Optional body: `reason` (up to 255 characters), recorded as the cancellation reason; without
+it hlthstack records `Cancelled by your booking partner`. Rescheduling and cancelling are allowed until 30 minutes before the slot (home
 collection: or until a phlebotomist is assigned, whichever is first). Booking-level calls can
 succeed partially: `success` and `failed` in the response list appointment ids.
 
 ```python
-def cancel(appointment_id: str) -> None:
-    api("PATCH", f"/api/appointments/{appointment_id}/cancel")
+def cancel(appointment_id: str, reason: str) -> None:
+    api("PATCH", f"/api/appointments/{appointment_id}/cancel", json={"reason": reason})
 ```
 
 ### 7. Download the voucher
@@ -389,7 +390,9 @@ def simulate_confirmation(appointment_id: str) -> None:
 
 After the visit, `GET /api/appointments/{appointment_id}/reports` and
 `GET /api/appointments/{appointment_id}/lab_results` return the reports and structured
-results.
+results. Report links are signed
+URLs that expire 5 minutes after they're issued: download the files right away, and fetch fresh
+links when you need them again.
 
 ## Consultations
 

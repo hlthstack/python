@@ -489,7 +489,13 @@ OPERATIONS: dict[str, Any] = {
                 "schema": {"type": "string", "pattern": "EKI[0-9A-Z_]{19}"},
             },
         ],
-        "body": {},
+        "body": {
+            "application/json": {
+                "type": "object",
+                "properties": {"reason": {"type": "string", "maxLength": 255}},
+            },
+        },
+        "body_required": False,
         "rules": [],
     },
     "rescheduleAppointment": {
@@ -579,7 +585,13 @@ OPERATIONS: dict[str, Any] = {
                 "schema": {"type": "string", "pattern": "APT[0-9A-Z_]{9}"},
             },
         ],
-        "body": {},
+        "body": {
+            "application/json": {
+                "type": "object",
+                "properties": {"reason": {"type": "string", "maxLength": 255}},
+            },
+        },
+        "body_required": False,
         "rules": [],
     },
     "getAppointmentVoucher": {
