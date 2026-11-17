@@ -28,7 +28,7 @@ Both talk to the same API, so you can start with one and move to the other.
 ## SDK quickstart
 
 ```bash
-pip install "git+https://github.com/hlthstack/python@v1.0.1"
+pip install "git+https://github.com/hlthstack/python@v1.0.2"
 ```
 
 Releases and their changes are listed in [CHANGELOG.md](CHANGELOG.md).
