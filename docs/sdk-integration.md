@@ -11,7 +11,20 @@ the API over plain HTTP without it, see the [plain REST API guide](api-integrati
 - Webhook signature verification with the standard library only
 - Python 3.9+, one dependency ([httpx](https://www.python-httpx.org/))
 
-REST API reference and guides: https://github.com/hlthstack/integration-guide
+**See also:** [REST API reference and guides](https://github.com/hlthstack/integration-guide)
+
+**On this page**
+
+- [Install](#install)
+- [Quickstart](#quickstart) · [Async](#async)
+- [Configuration](#configuration) · [Environments](#environments) ·
+  [Authentication](#authentication) · [Multi-entity partners](#multi-entity-partners)
+- [API surface](#api-surface) · [Files](#files) · [Pre-registration](#pre-registration) ·
+  [Testing on staging](#testing-on-staging)
+- [Errors](#errors)
+- [Validation](#validation)
+- [Webhooks](#webhooks)
+- [Development](#development)
 
 ## Install
 
@@ -27,13 +40,18 @@ In `requirements.txt`:
 hlthstack @ git+https://github.com/hlthstack/python@v1.0.2
 ```
 
-Pin a release tag, as above, so your builds are reproducible. Releases and their changes
-are listed in [CHANGELOG.md](../CHANGELOG.md).
+> [!TIP]
+> Pin a release tag, as above, so your builds are reproducible. Releases and their changes
+> are listed in [CHANGELOG.md](../CHANGELOG.md).
 
-The same `hlthstack @ git+https://...` form works in `pyproject.toml` dependencies. A PyPI
-release (`pip install hlthstack`) may follow later; until then, install from GitHub.
+The same `hlthstack @ git+https://...` form works in `pyproject.toml` dependencies.
+
+> [!NOTE]
+> A PyPI release (`pip install hlthstack`) may follow later; until then, install from GitHub.
 
 ## Quickstart
+
+Find a provider, pick a slot, book a health checkup and read the booking back:
 
 ```python
 import os
@@ -89,6 +107,9 @@ client.close()
 
 ### Async
 
+`AsyncHlthstack` has the same methods as `Hlthstack`; await each call and use the client as
+an async context manager:
+
 ```python
 import asyncio
 import os
@@ -130,6 +151,8 @@ asyncio.run(main())
 
 ## Configuration
 
+Every constructor argument, with its default:
+
 ```python
 Hlthstack(
     username="...",  # API username issued by hlthstack (not needed for pre-registration only)
@@ -145,10 +168,14 @@ Hlthstack(
 )
 ```
 
-Use one client per set of credentials and reuse it: it keeps a connection pool and the
-access token. Close it with `client.close()` (`await client.aclose()` for the async
-client), or use it as a context manager. Credentials, the entity secret key and webhook
-secrets are server-side secrets: never ship them in a browser or mobile app.
+- Use one client per set of credentials and reuse it: it keeps a connection pool and the
+  access token.
+- Close it with `client.close()` (`await client.aclose()` for the async client), or use it as
+  a context manager.
+
+> [!CAUTION]
+> Credentials, the entity secret key and webhook secrets are server-side secrets: never ship
+> them in a browser or mobile app.
 
 ### Environments
 
@@ -161,17 +188,26 @@ Credentials, package ids, plan ids, entity ids and webhook secrets differ per en
 
 ### Authentication
 
-You never handle tokens yourself. On the first call the client requests an access token
-(`GET /api/get-access-token` with HTTP Basic auth), caches it, and requests a new one five
-minutes before it expires (tokens last one hour). If a call still returns 401, the client
-fetches a new token and retries that call once. Token refreshes are shared between threads
-(sync client) or tasks (async client). `client.get_access_token()` fetches a token
-explicitly if you need one.
+> [!NOTE]
+> You never handle tokens yourself. Tokens last one hour; the client requests a new one five
+> minutes before it expires.
 
-`client.pre_registration` uses separate credentials (`pre_registration_username` /
-`pre_registration_password`) and its own token, requested from
-`GET /api/pre_registration/access-token`, sent as `X-EKINCARE-KEY`, and cached and refreshed
-the same way. `client.pre_registration.get_access_token()` fetches one explicitly.
+- On the first call the client requests an access token (`GET /api/get-access-token` with
+  HTTP Basic auth) and caches it.
+- If a call still returns 401, the client fetches a new token and retries that call once.
+- Token refreshes are shared between threads (sync client) or tasks (async client).
+- `client.get_access_token()` fetches a token explicitly if you need one.
+
+`client.pre_registration` uses separate credentials and its own token:
+
+| | Main API | Pre-registration |
+|---|---|---|
+| Credentials | `username` / `password` | `pre_registration_username` / `pre_registration_password` |
+| Token request | `GET /api/get-access-token` | `GET /api/pre_registration/access-token` |
+| Sent as | Bearer token | `X-EKINCARE-KEY` |
+| Explicit fetch | `client.get_access_token()` | `client.pre_registration.get_access_token()` |
+
+The pre-registration token is cached and refreshed the same way.
 
 ### Multi-entity partners
 
@@ -190,20 +226,93 @@ Without `entity_id`, calls act for the entity tied to your credentials.
 
 Methods map one-to-one to the operations in the
 [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml).
-Path parameters are positional; everything else is a keyword argument named as in the
-spec. Optional arguments left as `None` are not sent. Every method except the
-`pre_registration` ones also takes `entity_id=` and `secret_key=`, and every method that
-calls the API takes `validate=` (see [Validation](#validation)).
 
-| Namespace | Methods (operationId) |
-|---|---|
-| `client` | `get_access_token` (getAccessToken) |
-| `client.appointments` | `list_providers` (listProviders), `list_slots` (listSlots), `create` (createAppointment), `get` (getAppointment), `reschedule_booking` (rescheduleBooking), `cancel_booking` (cancelBooking; optional `reason=`), `reschedule` (rescheduleAppointment), `cancel` (cancelAppointment; optional `reason=`), `get_voucher` (getAppointmentVoucher), `get_reports` (getAppointmentReports), `get_lab_results` (getAppointmentLabResults) |
-| `client.consultations` | `list_inclinic_providers` (listInclinicConsultationProviders), `list_specialist_providers` (listSpecialistConsultationProviders), `list_slots` (listSlots), `create_inclinic` (createInclinicConsultation), `create_specialist` (createSpecialistConsultation), `get_inclinic` (getInclinicConsultation), `get_specialist` (getSpecialistConsultation), `reschedule` (rescheduleConsultation), `cancel` (cancelConsultation), `get_summary_and_prescription` (getConsultationSummaryAndPrescription), `get_voucher` (getConsultationVoucher), `upload_documents` (uploadConsultationDocuments) |
-| `client.pharmacy` | `search_medicines` (searchMedicines), `digitize_prescription` (digitizePrescription), `get_prescription_digitization` (getPrescriptionDigitization), `get_cart` (getCart), `update_cart` (updateCart), `get_fulfillment_options` (getFulfillmentOptions), `get_order_payment_details` (getOrderPaymentDetails), `create_order` (createOrder), `list_orders` (listOrders), `get_order` (getOrder), `cancel_order` (cancelOrder), `confirm_order` (confirmOrder) |
-| `client.wallet` | `get_customer_wallet` (getCustomerWallet), `list_customer_plans` (listCustomerPlans) |
-| `client.pre_registration` | `get_access_token` (getPreRegistrationAccessToken), `create` (createPreRegistrations), `update` (updatePreRegistrations), `deactivate` (deactivatePreRegistrations), `get_status` (getPreRegistrationStatus) |
-| `client.testing` | **Staging only.** `simulate_appointment_status` (simulateAppointmentStatus), `simulate_consultation_status` (simulateConsultationStatus), `simulate_order_status` (simulateOrderStatus) |
+- Path parameters are positional; everything else is a keyword argument named as in the
+  spec.
+- Optional arguments left as `None` are not sent.
+- Every method except the `pre_registration` ones also takes `entity_id=` and `secret_key=`.
+- Every method that calls the API takes `validate=` (see [Validation](#validation)).
+
+**`client`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `get_access_token` | getAccessToken | `GET /api/get-access-token` |
+
+**`client.appointments`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `list_providers` | listProviders | `GET /api/providers` |
+| `list_slots` | listSlots | `GET /api/providers/{provider_id}/{benefit_type}/slots` |
+| `create` | createAppointment | `POST /api/appointments` |
+| `get` | getAppointment | `GET /api/appointments` |
+| `reschedule_booking` | rescheduleBooking | `PATCH /api/bookings/{booking_id}/reschedule` |
+| `cancel_booking` (optional `reason=`) | cancelBooking | `PATCH /api/bookings/{booking_id}/cancel` |
+| `reschedule` | rescheduleAppointment | `PATCH /api/appointments/{appointment_id}/reschedule` |
+| `cancel` (optional `reason=`) | cancelAppointment | `PATCH /api/appointments/{appointment_id}/cancel` |
+| `get_voucher` | getAppointmentVoucher | `GET /api/appointments/{appointment_id}/voucher` |
+| `get_reports` | getAppointmentReports | `GET /api/appointments/{appointment_id}/reports` |
+| `get_lab_results` | getAppointmentLabResults | `GET /api/appointments/{appointment_id}/lab_results` |
+
+**`client.consultations`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `list_inclinic_providers` | listInclinicConsultationProviders | `GET /api/consultations/inclinic_consultation/providers` |
+| `list_specialist_providers` | listSpecialistConsultationProviders | `GET /api/consultations/specialist_consultation/providers` |
+| `list_slots` | listSlots | `GET /api/providers/{provider_id}/{benefit_type}/slots` |
+| `create_inclinic` | createInclinicConsultation | `POST /api/consultations/inclinic_consultation` |
+| `create_specialist` | createSpecialistConsultation | `POST /api/consultations/specialist_consultation` |
+| `get_inclinic` | getInclinicConsultation | `GET /api/consultations/inclinic_consultation/{appointment_id}` |
+| `get_specialist` | getSpecialistConsultation | `GET /api/consultations/specialist_consultation/{appointment_id}` |
+| `reschedule` | rescheduleConsultation | `PATCH /api/consultations/{appointment_id}/reschedule` |
+| `cancel` | cancelConsultation | `PATCH /api/consultations/{appointment_id}/cancel` |
+| `get_summary_and_prescription` | getConsultationSummaryAndPrescription | `GET /api/consultations/{appointment_id}/summary_and_prescription` |
+| `get_voucher` | getConsultationVoucher | `GET /api/consultations/{appointment_id}/voucher` |
+| `upload_documents` | uploadConsultationDocuments | `POST /api/consultations/{appointment_id}/upload_documents` |
+
+**`client.pharmacy`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `search_medicines` | searchMedicines | `GET /api/epharmacy/medicines/search` |
+| `digitize_prescription` | digitizePrescription | `POST /api/prescriptions/digitize` |
+| `get_prescription_digitization` | getPrescriptionDigitization | `GET /api/prescriptions/digitize/{request_id}` |
+| `get_cart` | getCart | `GET /api/epharmacy/cart` |
+| `update_cart` | updateCart | `PATCH /api/epharmacy/cart` |
+| `get_fulfillment_options` | getFulfillmentOptions | `GET /api/epharmacy/fulfillment_options` |
+| `get_order_payment_details` | getOrderPaymentDetails | `POST /api/epharmacy/orders/payment_details` |
+| `create_order` | createOrder | `POST /api/epharmacy/orders` |
+| `list_orders` | listOrders | `GET /api/epharmacy/orders` |
+| `get_order` | getOrder | `GET /api/epharmacy/orders/{order_id}` |
+| `cancel_order` | cancelOrder | `PATCH /api/epharmacy/orders/{order_id}/cancel` |
+| `confirm_order` | confirmOrder | `POST /api/epharmacy/orders/{order_id}/confirm` |
+
+**`client.wallet`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `get_customer_wallet` | getCustomerWallet | `GET /api/{company_slug}/customers/wallet` |
+| `list_customer_plans` | listCustomerPlans | `GET /api/{company_slug}/customers/plans` |
+
+**`client.pre_registration`**
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `get_access_token` | getPreRegistrationAccessToken | `GET /api/pre_registration/access-token` |
+| `create` | createPreRegistrations | `POST /v1/corporate/pre_registrations` |
+| `update` | updatePreRegistrations | `POST /v1/corporate/pre_registrations/update` |
+| `deactivate` | deactivatePreRegistrations | `POST /v1/corporate/pre_registrations/deactivate` |
+| `get_status` | getPreRegistrationStatus | `GET /v1/corporate/pre_registrations/{request_id}/status` |
+
+**`client.testing`** (**Staging only.** See [Testing on staging](#testing-on-staging).)
+
+| Method | Operation | Endpoint |
+|---|---|---|
+| `simulate_appointment_status` | simulateAppointmentStatus | `POST /api/appointments/{appointment_id}/update_status` |
+| `simulate_consultation_status` | simulateConsultationStatus | `PATCH /api/consultations/{appointment_id}/update_status` |
+| `simulate_order_status` | simulateOrderStatus | `PATCH /api/epharmacy/orders/{order_id}/update_status` |
 
 A few conveniences on top of the raw API:
 
@@ -216,12 +325,20 @@ A few conveniences on top of the raw API:
 - `digitize_prescription` takes a single `customer` (the API accepts exactly one).
 
 Responses are the parsed JSON `dict`s, typed with the `TypedDict`s in `hlthstack.types`.
-Many keys are present only in some states; read them with `.get()`.
+
+> [!TIP]
+> Many keys are present only in some states; read them with `.get()`.
 
 ### Files
 
-Uploads accept a path, `bytes`, a binary file object, or a
-`(filename, content)` / `(filename, content, content_type)` tuple:
+Uploads accept any of:
+
+- a path
+- `bytes`
+- a binary file object
+- a `(filename, content)` / `(filename, content, content_type)` tuple
+
+For example, consultation documents, a prescription to digitize, and cart prescriptions:
 
 ```python
 client.consultations.upload_documents(
@@ -256,8 +373,11 @@ with open("voucher.pdf", "wb") as f:
 ### Pre-registration
 
 Register, update and deactivate members (employees) and their dependants in bulk, at most
-250 rows per call. Each write returns a `request_id`; poll `get_status` until `status` is
-`completed`, then read `success_records` and `failure_records`:
+**250 rows per call**:
+
+1. Each write returns a `request_id`.
+2. Poll `get_status` until `status` is `completed`.
+3. Read `success_records` and `failure_records`.
 
 ```python
 import os
@@ -301,17 +421,21 @@ client.pre_registration.update(employees=[{"email": "jane.doe@example.com", "gra
 client.pre_registration.deactivate(employees=["jane.doe@example.com"])
 ```
 
-On `create`, every key the `PreRegistrationEmployee` / `PreRegistrationDependant` types mark
-required must be present in each row, even when empty: the API silently drops rows that miss
-one. `update` takes the identifier and only the fields to change; `deactivate` takes employee
-emails and dependant mobile numbers. See the
+> [!WARNING]
+> On `create`, every key the `PreRegistrationEmployee` / `PreRegistrationDependant` types mark
+> required must be present in each row, even when empty: the API silently drops rows that miss
+> one.
+
+- `update` takes the identifier and only the fields to change.
+- `deactivate` takes employee emails and dependant mobile numbers.
+
+**See also:** the
 [pre-registration guide](https://github.com/hlthstack/integration-guide/blob/main/docs/pre-registration.md).
 
 ### Testing on staging
 
 `client.testing` wraps the staging-only endpoints that move a booking or order through its
-lifecycle and fire real webhooks. They don't exist in production (it returns 401 or 404),
-so only use them with `environment="staging"`:
+lifecycle and fire real webhooks:
 
 ```python
 client.testing.simulate_appointment_status("APT1A2B3C4D5", status="confirm")
@@ -322,6 +446,10 @@ client.testing.simulate_order_status(
     "EPO000000000001", api_customer_id="CUST1001", status="in_progress"
 )
 ```
+
+> [!IMPORTANT]
+> These endpoints don't exist in production (it returns 401 or 404), so only use them with
+> `environment="staging"`.
 
 ## Errors
 
@@ -340,10 +468,20 @@ Non-2xx responses raise a subclass of `hlthstack.HlthstackError`:
 | `APIConnectionError` | network error or timeout (no response) |
 | `ValidationError` | the request breaks the API's input rules; nothing was sent (see [Validation](#validation)) |
 
-Every error has `status_code`, `body` (parsed JSON, or text), `headers`, and `messages`: the
-human-readable messages pulled out of whichever error shape the endpoint uses
-(`{"errors": {"field": [...]}}`, `{"errors": {"messages": [...]}}`, `{"message": ...}`,
-`{"msg": ..., "recall": ...}`, `{"error": ...}`, `{"errors": [...]}`, plain text).
+Every error has:
+
+| Attribute | Contents |
+|---|---|
+| `status_code` | The HTTP status |
+| `body` | Parsed JSON, or text |
+| `headers` | The response headers |
+| `messages` | The human-readable messages pulled out of whichever error shape the endpoint uses |
+
+The error shapes `messages` understands: `{"errors": {"field": [...]}}`,
+`{"errors": {"messages": [...]}}`, `{"message": ...}`, `{"msg": ..., "recall": ...}`,
+`{"error": ...}`, `{"errors": [...]}`, plain text.
+
+Catch the specific class first, then `HlthstackError`:
 
 ```python
 from hlthstack import BadRequestError, HlthstackError
@@ -356,18 +494,24 @@ except HlthstackError as e:
     print("hlthstack error:", e)
 ```
 
-The client does not retry failed calls (other than the single retry after a 401). Retry 5xx,
-409 and network errors with backoff yourself, and never blindly retry booking creation:
-check `appointments.get` or your webhooks first. Some ePharmacy responses are HTTP 200 with
-`"success": false` nested inside (for example fulfillment options); check those flags.
+> [!WARNING]
+> The client does not retry failed calls (other than the single retry after a 401).
+>
+> - Retry 5xx, 409 and network errors with backoff yourself.
+> - Never blindly retry booking creation: check `appointments.get` or your webhooks first.
+> - Some ePharmacy responses are HTTP 200 with `"success": false` nested inside (for example
+>   fulfillment options); check those flags.
 
 ## Validation
 
 Before a method sends its request, the client checks it against the input rules in the
 [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml)
-and, if anything is wrong, raises `hlthstack.ValidationError` listing every problem. Nothing
-is sent and no access token is requested. The check runs on the request as it would go out,
-after the method's conversions (package id lists, `datetime`s, `api_customer_id=`).
+and, if anything is wrong, raises `hlthstack.ValidationError` listing every problem.
+
+> [!NOTE]
+> Nothing is sent and no access token is requested. The check runs on the request as it
+> would go out, after the method's conversions (package id lists, `datetime`s,
+> `api_customer_id=`).
 
 What is checked:
 
@@ -375,15 +519,21 @@ What is checked:
   member ids, booking and appointment ids, genders, relations, dates in pre-registration
   rows), string lengths, number ranges, list sizes, and date (`YYYY-MM-DD`), date-time (ISO
   8601 with an offset, such as `2026-01-15T02:30:00Z`), URI and UUID formats.
-- **Rules across fields**: for example `address` for home collection; `pincode`, or
-  `latitude` and `longitude`; `api_customer_id` or `employee_id`; `address` or `address_id`,
-  not both; `selected_chemist_id` for store pickup; one entry per `api_customer_id` or
-  product id; `sort_by` and `gender` only for in-clinic consultations; no 6-digit number
-  other than the pincode in an Indian address's text fields.
+- **Rules across fields**: for example
+  - `address` for home collection
+  - `pincode`, or `latitude` and `longitude`
+  - `api_customer_id` or `employee_id`
+  - `address` or `address_id`, not both
+  - `selected_chemist_id` for store pickup
+  - one entry per `api_customer_id` or product id
+  - `sort_by` and `gender` only for in-clinic consultations
+  - no 6-digit number other than the pincode in an Indian address's text fields
 - **Dates**: members at least one year old, consultation times in the future, dates of birth
   not in the future (dates are compared with today's date in India).
 - **Files and counts**: upload types, extensions and sizes; at most 250 pre-registration rows
   per call; a positive `partner_collected_amount`.
+
+This request breaks three rules:
 
 ```python
 from hlthstack import ValidationError
@@ -411,6 +561,8 @@ except ValidationError as e:
         print(error["path"], error["rule"], error["message"])
 ```
 
+It prints:
+
 ```text
 Invalid createAppointment request (3 problems):
   - customers[0].mobile_number: must match the pattern ^[0-9]{10}$ [pattern]
@@ -418,11 +570,15 @@ Invalid createAppointment request (3 problems):
   - address: address is required when appointment_type is home_collection. [required_if]
 ```
 
-`ValidationError` subclasses `HlthstackError` (and `ValueError`). `errors` is a list of
-`{"path", "message", "rule"}` dicts: `path` points into the request (`customers[0].dob`,
-`files[1].value`; empty for the request as a whole) and `rule` is the JSON Schema keyword
-(`required`, `pattern`, ...) or the spec's rule kind (`required_if`, `unique_by`, ...).
-`messages` has the same problems as `"path: message"` strings.
+About `ValidationError`:
+
+- It subclasses `HlthstackError` (and `ValueError`).
+- `errors` is a list of `{"path", "message", "rule"}` dicts:
+  - `path` points into the request (`customers[0].dob`, `files[1].value`; empty for the
+    request as a whole).
+  - `rule` is the JSON Schema keyword (`required`, `pattern`, ...) or the spec's rule kind
+    (`required_if`, `unique_by`, ...).
+- `messages` has the same problems as `"path: message"` strings.
 
 To skip the checks, for example if the API accepts something before this library is
 updated, turn them off for the client or for one call:
@@ -437,16 +593,28 @@ client.appointments.get("EKI0000000001700000000", validate=False)  # skip this o
 
 Checks that need data stored by hlthstack are made by the server and still come back as
 `HlthstackError` subclasses (`BadRequestError`, `NotFoundError`, `UnprocessableEntityError`,
-...): plan benefits and wallet balances, slot availability, provider capabilities, whether a
-member, booking or cart exists and what state it is in, the order's amount to collect,
-password-protected PDFs and files fetched from `prescription_urls`. Pre-registration rows
-are checked again while they are processed and reported in `failure_records`.
+...):
+
+- plan benefits and wallet balances
+- slot availability
+- provider capabilities
+- whether a member, booking or cart exists and what state it is in
+- the order's amount to collect
+- password-protected PDFs and files fetched from `prescription_urls`
+
+Pre-registration rows are checked again while they are processed and reported in
+`failure_records`.
 
 ## Webhooks
 
 hlthstack signs every webhook with an HS256 JWT in the `Signature` header. The JWT does not
-cover the body, so `verify_signature` checks the signature, that the ids in the claims match
-the body, and that the `timestamp` claim is within 5 minutes:
+cover the body, so `verify_signature` checks:
+
+1. the signature,
+2. that the ids in the claims match the body, and
+3. that the `timestamp` claim is within 5 minutes.
+
+A Flask receiver:
 
 ```python
 import os
@@ -468,17 +636,27 @@ def webhook():
 ```
 
 `verify_signature(body, signature, secret, *, tolerance=300)` takes the raw body (bytes or
-str) or the parsed JSON object and returns the JWT claims. Payload types for the seven
-webhook events are in `hlthstack.webhooks`: `AppointmentStatusUpdateWebhook`,
-`ConsultationStatusUpdateWebhook`, `LabResultsWebhook`, `PharmacyOrderStatusUpdateWebhook`,
-`PharmacyAdditionalPaymentRequiredWebhook`, `PharmacyPostBillingWebhook` and
-`PrescriptionDigitizedWebhook`.
+str) or the parsed JSON object and returns the JWT claims.
 
-Delivery is at-least-once and unordered: deduplicate, use the claims' `timestamp` to drop
-older events, and treat `appointments.get` / `pharmacy.get_order` as the source of truth.
-See the [webhooks guide](https://github.com/hlthstack/integration-guide/blob/main/docs/webhooks.md).
+Payload types for the seven webhook events are in `hlthstack.webhooks`:
+
+- `AppointmentStatusUpdateWebhook`
+- `ConsultationStatusUpdateWebhook`
+- `LabResultsWebhook`
+- `PharmacyOrderStatusUpdateWebhook`
+- `PharmacyAdditionalPaymentRequiredWebhook`
+- `PharmacyPostBillingWebhook`
+- `PrescriptionDigitizedWebhook`
+
+> [!IMPORTANT]
+> Delivery is at-least-once and unordered: deduplicate, use the claims' `timestamp` to drop
+> older events, and treat `appointments.get` / `pharmacy.get_order` as the source of truth.
+
+**See also:** the [webhooks guide](https://github.com/hlthstack/integration-guide/blob/main/docs/webhooks.md).
 
 ## Development
+
+Set up a virtual environment, then run the tests, linters and type checks:
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
@@ -488,10 +666,11 @@ ruff check . && ruff format --check .
 mypy
 ```
 
-`src/hlthstack/_sync_resources.py` is generated from `_async_resources.py`: edit the async
-file, then run `python scripts/unasync.py`.
+Two modules are generated; don't edit them by hand:
 
-`src/hlthstack/_validation_spec.py` is generated from `openapi/openapi.yaml` (a copy of the
-integration guide's spec): after updating the spec, run `python scripts/build_validation.py`.
-It fails if the spec uses a schema keyword or rule the validator in `_validation.py` does not
-implement; restate new `x-hlthstack-rules` in the script's `RULES` table.
+- `src/hlthstack/_sync_resources.py` is generated from `_async_resources.py`: edit the async
+  file, then run `python scripts/unasync.py`.
+- `src/hlthstack/_validation_spec.py` is generated from `openapi/openapi.yaml` (a copy of the
+  integration guide's spec): after updating the spec, run `python scripts/build_validation.py`.
+  It fails if the spec uses a schema keyword or rule the validator in `_validation.py` does
+  not implement; restate new `x-hlthstack-rules` in the script's `RULES` table.

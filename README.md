@@ -1,37 +1,55 @@
 # hlthstack for Python
 
-Integrate Python backends with the [hlthstack](https://www.hlthstack.io/) partner REST API:
-book health checkups and lab tests, in-clinic and online doctor consultations and ePharmacy
-orders for your members, read their benefit wallets, pre-register members and their
-dependants, and verify the webhooks hlthstack sends you.
+[![Release](https://img.shields.io/github/v/release/hlthstack/python)](https://github.com/hlthstack/python/releases)
+[![CI](https://github.com/hlthstack/python/actions/workflows/ci.yml/badge.svg)](https://github.com/hlthstack/python/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/hlthstack/python)](LICENSE)
+
+Integrate Python backends with the [hlthstack](https://www.hlthstack.io/) partner REST API.
+You can:
+
+- book health checkups and lab tests
+- book in-clinic and online doctor consultations
+- place ePharmacy orders for your members
+- read their benefit wallets
+- pre-register members and their dependants
+- verify the webhooks hlthstack sends you
 
 This repository holds the official Python SDK (`hlthstack`) and two integration guides: one
 for the SDK, one for calling the REST API directly over HTTP.
+
+> [!CAUTION]
+> Credentials, the entity secret key and webhook secrets are server-side secrets: never ship
+> them in a browser or mobile app.
 
 ## Choose how to integrate
 
 | | SDK | Plain REST API |
 |---|---|---|
-| Guide | [docs/sdk-integration.md](docs/sdk-integration.md) | [docs/api-integration.md](docs/api-integration.md) |
-| Install | `pip install` from this GitHub repository | Nothing from hlthstack; any HTTP client (`requests`, `httpx`, ...) |
-| Access tokens | Fetched, cached and refreshed for you; one retry after a 401 | You fetch, cache and refresh them (the guide has a helper) |
-| Input validation | Every request checked against the API's rules before it is sent | You check inputs yourself, or rely on the API's 400/422 responses |
-| Types | `TypedDict` requests and responses | Plain dicts |
-| Sync / async | `Hlthstack` and `AsyncHlthstack` with the same methods | Whatever your HTTP client offers |
-| Errors | One exception class per status, with the messages extracted | You parse the API's several error shapes |
-| Webhooks | `verify_signature` helper and payload types | Verify the HS256 JWT yourself (the guide shows how, standard library only) |
-| Dependencies | `httpx` | None beyond your HTTP client |
+| **Guide** | [docs/sdk-integration.md](docs/sdk-integration.md) | [docs/api-integration.md](docs/api-integration.md) |
+| **Install** | `pip install` from this GitHub repository | Nothing from hlthstack; any HTTP client (`requests`, `httpx`, ...) |
+| **Access tokens** | Fetched, cached and refreshed for you; one retry after a 401 | You fetch, cache and refresh them (the guide has a helper) |
+| **Input validation** | Every request checked against the API's rules before it is sent | You check inputs yourself, or rely on the API's 400/422 responses |
+| **Types** | `TypedDict` requests and responses | Plain dicts |
+| **Sync / async** | `Hlthstack` and `AsyncHlthstack` with the same methods | Whatever your HTTP client offers |
+| **Errors** | One exception class per status, with the messages extracted | You parse the API's several error shapes |
+| **Webhooks** | `verify_signature` helper and payload types | Verify the HS256 JWT yourself (the guide shows how, standard library only) |
+| **Dependencies** | `httpx` | None beyond your HTTP client |
 
-Pick the SDK unless you can't add a dependency or want full control over every request.
-Both talk to the same API, so you can start with one and move to the other.
+> [!TIP]
+> Pick the SDK unless you can't add a dependency or want full control over every request.
+> Both talk to the same API, so you can start with one and move to the other.
 
 ## SDK quickstart
+
+Install a pinned release from GitHub:
 
 ```bash
 pip install "git+https://github.com/hlthstack/python@v1.0.2"
 ```
 
 Releases and their changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+List the health-checkup providers for a package near a pincode on staging:
 
 ```python
 import os
@@ -55,26 +73,29 @@ webhooks.
 
 ## Plain REST API quickstart
 
+Fetch an access token with HTTP Basic auth:
+
 ```bash
 curl -u "$HLTHSTACK_USERNAME:$HLTHSTACK_PASSWORD" \
   https://staging-api.hlthstack.io/api/get-access-token
 ```
 
-Then send `Authorization: Bearer <access_token>` on every other call. The
-[plain REST API guide](docs/api-integration.md) walks through token caching, a full booking
-with `requests`, uploads, pre-registration, errors, input checks and webhook verification.
-Runnable scripts are in [`examples/api/`](examples/api/).
+Then send `Authorization: Bearer <access_token>` on every other call.
+
+- The [plain REST API guide](docs/api-integration.md) walks through token caching, a full
+  booking with `requests`, uploads, pre-registration, errors, input checks and webhook
+  verification.
+- Runnable scripts are in [`examples/api/`](examples/api/).
 
 ## Reference
 
-- Getting started (access to go-live): https://github.com/hlthstack/integration-guide/blob/main/docs/getting-started.md
-- API reference: https://developers.hlthstack.io
-- Postman docs, with code samples and a Run in Postman button: https://documenter.getpostman.com/view/32733686/2sBYHbrFjt
-- REST API guides: https://github.com/hlthstack/integration-guide
-- OpenAPI spec: https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml
-
-Credentials, the entity secret key and webhook secrets are server-side secrets: never ship
-them in a browser or mobile app.
+- [Getting started](https://github.com/hlthstack/integration-guide/blob/main/docs/getting-started.md):
+  access to go-live
+- [API reference](https://developers.hlthstack.io)
+- [Postman docs](https://documenter.getpostman.com/view/32733686/2sBYHbrFjt), with code samples
+  and a **Run in Postman** button
+- [REST API guides](https://github.com/hlthstack/integration-guide)
+- [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml)
 
 ## License
 

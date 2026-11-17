@@ -1,10 +1,32 @@
 # Plain REST API integration (Python)
 
-Call the hlthstack partner REST API directly over HTTP, without the `hlthstack` SDK. The
-examples use [requests](https://requests.readthedocs.io/); [httpx](https://www.python-httpx.org/)
-works the same way (`httpx.Client` in place of `requests.Session`). Flask is used only for
-the webhook receiver. To let a library do the token handling, input checks and error parsing
-for you, see the [SDK integration guide](sdk-integration.md).
+Call the hlthstack partner REST API directly over HTTP, without the `hlthstack` SDK.
+
+- The examples use [requests](https://requests.readthedocs.io/);
+  [httpx](https://www.python-httpx.org/) works the same way (`httpx.Client` in place of
+  `requests.Session`).
+- Flask is used only for the webhook receiver.
+- To let a library do the token handling, input checks and error parsing for you, see the
+  [SDK integration guide](sdk-integration.md).
+
+**On this page**
+
+- [Runnable examples](#runnable-examples)
+- [Environments](#environments)
+- [Authentication](#authentication) · [Token helper](#token-helper) ·
+  [Request helper](#request-helper)
+- [Multi-entity partners](#multi-entity-partners)
+- [Book a health checkup](#book-a-health-checkup)
+- [Consultations](#consultations)
+- [ePharmacy](#epharmacy)
+- [File uploads](#file-uploads)
+- [Pre-registration](#pre-registration)
+- [Errors](#errors)
+- [Validating inputs yourself](#validating-inputs-yourself)
+- [Webhooks](#webhooks)
+- [Moving to the SDK](#moving-to-the-sdk)
+
+## Runnable examples
 
 The code below is taken from runnable scripts in [`examples/api/`](../examples/api/):
 
@@ -18,6 +40,8 @@ The code below is taken from runnable scripts in [`examples/api/`](../examples/a
 | [`pre_registration.py`](../examples/api/pre_registration.py) | Register, update and deactivate members |
 | [`webhook_receiver.py`](../examples/api/webhook_receiver.py) | Flask webhook endpoint with signature verification |
 
+Install the dependencies and run a script against staging:
+
 ```bash
 pip install -r examples/api/requirements.txt   # requests, and flask for the webhook receiver
 export HLTHSTACK_USERNAME=... HLTHSTACK_PASSWORD=...   # staging credentials
@@ -25,12 +49,18 @@ python examples/api/book_health_checkup.py
 ```
 
 The scripts default to staging and read their configuration from environment variables
-(listed at the top of `client.py`). Every request and response field is in the
-[API reference](https://developers.hlthstack.io) (built from the
-[OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml));
-the [integration guide](https://github.com/hlthstack/integration-guide/tree/main/docs) explains
-each flow in depth. To try a call before writing code, use the [Postman docs](https://documenter.getpostman.com/view/32733686/2sBYHbrFjt): choose
-**Run in Postman**, pick the staging environment and enter your credentials.
+(listed at the top of `client.py`).
+
+- Every request and response field is in the
+  [API reference](https://developers.hlthstack.io) (built from the
+  [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml)).
+- The [integration guide](https://github.com/hlthstack/integration-guide/tree/main/docs)
+  explains each flow in depth.
+
+> [!TIP]
+> To try a call before writing code, use the
+> [Postman docs](https://documenter.getpostman.com/view/32733686/2sBYHbrFjt): choose
+> **Run in Postman**, pick the staging environment and enter your credentials.
 
 ## Environments
 
@@ -46,6 +76,8 @@ each flow in depth. To try a call before writing code, use the [Postman docs](ht
   They don't exist in production.
 - Set a client timeout of 30-60 seconds: create, reschedule and cancel calls can take a few
   seconds, and ePharmacy fulfillment options typically take 3-8 seconds.
+
+The examples' shared settings:
 
 ```python
 BASE_URL = os.environ.get("HLTHSTACK_BASE_URL", "https://staging-api.hlthstack.io")
@@ -64,10 +96,15 @@ issued to you, returns a token valid for one hour:
 { "access_token": "YOUR_ACCESS_TOKEN", "expires_at": "2026-01-15T07:16:21Z" }
 ```
 
-Send it as `Authorization: Bearer <access_token>` on every other call. There is no refresh
-token: request a new token before `expires_at`. A missing, invalid or expired token returns
-`401` with the plain-text body `HTTP Token: Access denied.`; wrong credentials on the token
-call return `401 {"message": "Wrong credentials"}`.
+Send it as `Authorization: Bearer <access_token>` on every other call.
+
+> [!IMPORTANT]
+> There is no refresh token: request a new token before `expires_at`.
+
+| Problem | Response |
+|---|---|
+| Missing, invalid or expired token | `401` with the plain-text body `HTTP Token: Access denied.` |
+| Wrong credentials on the token call | `401 {"message": "Wrong credentials"}` |
 
 ### Token helper
 
@@ -117,14 +154,19 @@ token = AccessToken(
 )
 ```
 
-(`datetime.fromisoformat` accepts a trailing `Z` only from Python 3.11, hence the replace.)
+> [!NOTE]
+> `datetime.fromisoformat` accepts a trailing `Z` only from Python 3.11, hence the replace.
 
 ### Request helper
 
-`api()` adds the bearer token, sends JSON bodies (`json=`), query strings (`params=`) or
-multipart forms (`data=` + `files=`), fetches a new token and retries once on a 401, and raises
-`APIError` with the parsed body on any other non-2xx response. It returns the parsed JSON, or
-the raw bytes for PDF responses such as vouchers:
+`api()`:
+
+- adds the bearer token;
+- sends JSON bodies (`json=`), query strings (`params=`) or multipart forms (`data=` +
+  `files=`);
+- fetches a new token and retries once on a 401;
+- raises `APIError` with the parsed body on any other non-2xx response;
+- returns the parsed JSON, or the raw bytes for PDF responses such as vouchers.
 
 ```python
 def _send(
@@ -182,8 +224,13 @@ def _parse_body(response: requests.Response) -> Any:
         return response.text
 ```
 
-`APIError` and `_entity_headers()` are in the next sections. Pass upload contents as bytes,
-not open file objects, so the retry after a 401 can send them again.
+`APIError` and `_entity_headers()` are in the next sections.
+
+> [!TIP]
+> Pass upload contents as bytes, not open file objects, so the retry after a 401 can send
+> them again.
+
+A call then looks like this:
 
 ```python
 providers = api(
@@ -225,27 +272,47 @@ api(
 )
 ```
 
-Header problems return `400 {"message": "..."}`: `API-ENTITY-ID header cannot be blank`,
-`API-SECRET-KEY header cannot be blank`, `Invalid Entity`,
-`API integration not enabled for this entity` or `API-SECRET-KEY is invalid`. An entity whose
-contract is not enabled for API booking gets
-`400 {"message": "The entity is not enabled for API booking."}` on every call. See
-[authentication](https://github.com/hlthstack/integration-guide/blob/main/docs/authentication.md).
+Header problems return `400 {"message": "..."}` with one of these messages:
+
+- `API-ENTITY-ID header cannot be blank`
+- `API-SECRET-KEY header cannot be blank`
+- `Invalid Entity`
+- `API integration not enabled for this entity`
+- `API-SECRET-KEY is invalid`
+
+An entity whose contract is not enabled for API booking gets
+`400 {"message": "The entity is not enabled for API booking."}` on every call.
+
+**See also:** [authentication](https://github.com/hlthstack/integration-guide/blob/main/docs/authentication.md).
 
 ## Book a health checkup
 
 A booking covers one or more members at one provider and time (`booking_id`); each member
-gets an appointment (`appointment_id`). From
-[`book_health_checkup.py`](../examples/api/book_health_checkup.py), with
-`PACKAGE_ID = 1001` (use the package ids shared with you) and `PINCODE = "500081"`. The full
-flow is in the
+gets an appointment (`appointment_id`).
+
+The steps below are from [`book_health_checkup.py`](../examples/api/book_health_checkup.py),
+with `PACKAGE_ID = 1001` (use the package ids shared with you) and `PINCODE = "500081"`.
+
+| Step | Call |
+|---|---|
+| [1. List providers](#1-list-providers) | `GET /api/providers` |
+| [2. Get slots](#2-get-slots) | `GET /api/providers/{provider_id}/{benefit_type}/slots` |
+| [3. Create the booking](#3-create-the-booking) | `POST /api/appointments` |
+| [4. Get the booking](#4-get-the-booking) | `GET /api/appointments?booking_id=...` |
+| [5. Reschedule](#5-reschedule) | `PATCH /api/appointments/{appointment_id}/reschedule` |
+| [6. Cancel](#6-cancel) | `PATCH /api/appointments/{appointment_id}/cancel` |
+| [7. Download the voucher](#7-download-the-voucher) | `GET /api/appointments/{appointment_id}/voucher` |
+
+**See also:** the full flow is in the
 [health checkups guide](https://github.com/hlthstack/integration-guide/blob/main/docs/health-checkups.md).
 
 ### 1. List providers
 
 `GET /api/providers` with `service_name`, `package_ids` (comma-separated) and `pincode`, or
-`latitude` + `longitude` instead of the pincode. Optional: `radius`, `page`, `per_page`
-(at most 50), `plan_id`, `auto_allocate_provider`. Results are sorted by distance.
+`latitude` + `longitude` instead of the pincode.
+
+- Optional: `radius`, `page`, `per_page` (at most 50), `plan_id`, `auto_allocate_provider`.
+- Results are sorted by distance.
 
 ```python
 def list_providers() -> list[dict[str, Any]]:
@@ -261,10 +328,12 @@ def list_providers() -> list[dict[str, Any]]:
 ### 2. Get slots
 
 `GET /api/providers/{provider_id}/{benefit_type}/slots` with `package_ids` and `pincode`.
-Pass `booking_date` (`YYYY-MM-DD`) for one day, or omit it for up to `count_days` days
-(default 14). Read `booking_slots[].slots[]` and book with a slot's `utc_slot_time`. A
-`booking_date` before the provider's first bookable date (from its `slot_lead_time` and
-`timezone`) returns 400.
+
+- Pass `booking_date` (`YYYY-MM-DD`) for one day, or omit it for up to `count_days` days
+  (default 14).
+- Read `booking_slots[].slots[]` and book with a slot's `utc_slot_time`.
+- A `booking_date` before the provider's first bookable date (from its `slot_lead_time` and
+  `timezone`) returns 400.
 
 ```python
 def available_slots(provider_id: int) -> list[str]:
@@ -284,10 +353,12 @@ def available_slots(provider_id: int) -> list[str]:
 
 ### 3. Create the booking
 
-`POST /api/appointments`. `appointment_type` is `inclinic` or `home_collection`; home
-collection also needs `address` (`address_line_one`, `address_line_two`, `city`, `state`,
-`country`, `pincode`, `latitude`, `longitude`). Optional: `plan_id`, `customer_plan_id` or
-`subscription_id`, `api_partner_order_id`.
+`POST /api/appointments`.
+
+- `appointment_type` is `inclinic` or `home_collection`.
+- Home collection also needs `address` (`address_line_one`, `address_line_two`, `city`,
+  `state`, `country`, `pincode`, `latitude`, `longitude`).
+- Optional: `plan_id`, `customer_plan_id` or `subscription_id`, `api_partner_order_id`.
 
 ```python
 def create_booking(provider_id: int, slot_time: str) -> dict[str, Any]:
@@ -316,12 +387,14 @@ def create_booking(provider_id: int, slot_time: str) -> dict[str, Any]:
 
 The response has `booking_id`, `status` and `customers[].appointment_id`:
 
-- `status: "confirmed"`: paid from the member's wallet. The appointment itself starts at
-  `new` and becomes `confirmed` when the provider confirms it (you get a webhook).
-- `status: "payment_pending"` with `payment_link`: the member must pay the rest.
+| Response | Meaning |
+|---|---|
+| `status: "confirmed"` | Paid from the member's wallet. The appointment itself starts at `new` and becomes `confirmed` when the provider confirms it (you get a webhook). |
+| `status: "payment_pending"` with `payment_link` | The member must pay the rest. |
 
-Don't blindly retry a failed or timed-out create: check with step 4 or your webhooks whether
-the booking exists first (see [Errors](#errors)).
+> [!WARNING]
+> Don't blindly retry a failed or timed-out create: check with step 4 or your webhooks
+> whether the booking exists first (see [Errors](#errors)).
 
 ### 4. Get the booking
 
@@ -342,9 +415,11 @@ for appointment in get_booking(booking["booking_id"])["appointments"]:
 
 `PATCH /api/appointments/{appointment_id}/reschedule` (or
 `PATCH /api/bookings/{booking_id}/reschedule` for the whole booking) with a new
-`appointment_date_time`. Add `provider_id` to move to another provider (not allowed once the
-appointment is confirmed at its provider), and for home collection `address` together with
-`provider_id` to change the address.
+`appointment_date_time`.
+
+- Add `provider_id` to move to another provider (not allowed once the appointment is
+  confirmed at its provider).
+- For home collection, add `address` together with `provider_id` to change the address.
 
 ```python
 def reschedule(appointment_id: str, slot_time: str) -> None:
@@ -358,10 +433,15 @@ def reschedule(appointment_id: str, slot_time: str) -> None:
 ### 6. Cancel
 
 `PATCH /api/appointments/{appointment_id}/cancel` (or `PATCH /api/bookings/{booking_id}/cancel`).
-Optional body: `reason` (up to 255 characters), recorded as the cancellation reason; without
-it hlthstack records `Cancelled by your booking partner`. Rescheduling and cancelling are allowed until 30 minutes before the slot (home
-collection: or until a phlebotomist is assigned, whichever is first). Booking-level calls can
-succeed partially: `success` and `failed` in the response list appointment ids.
+
+- Optional body: `reason` (up to 255 characters), recorded as the cancellation reason;
+  without it hlthstack records `Cancelled by your booking partner`.
+- Booking-level calls can succeed partially: `success` and `failed` in the response list
+  appointment ids.
+
+> [!IMPORTANT]
+> Rescheduling and cancelling are allowed until 30 minutes before the slot (home collection:
+> or until a phlebotomist is assigned, whichever is first).
 
 ```python
 def cancel(appointment_id: str, reason: str) -> None:
@@ -392,9 +472,11 @@ def simulate_confirmation(appointment_id: str) -> None:
 
 After the visit, `GET /api/appointments/{appointment_id}/reports` and
 `GET /api/appointments/{appointment_id}/lab_results` return the reports and structured
-results. Report links are signed
-URLs that expire 5 minutes after they're issued: download the files right away, and fetch fresh
-links when you need them again.
+results.
+
+> [!WARNING]
+> Report links are signed URLs that expire 5 minutes after they're issued: download the
+> files right away, and fetch fresh links when you need them again.
 
 ## Consultations
 
@@ -452,10 +534,18 @@ def book_inclinic_consultation() -> dict[str, Any]:
     return booking
 ```
 
-Track it with `GET /api/consultations/inclinic_consultation/{appointment_id}`, reschedule
-with `PATCH /api/consultations/{appointment_id}/reschedule`, cancel with
-`PATCH /api/consultations/{appointment_id}/cancel`. Audio and video specialist consultations
-(scheduled or priority) use `/api/consultations/specialist_consultation`. See the
+Then manage it with:
+
+| Action | Call |
+|---|---|
+| Track | `GET /api/consultations/inclinic_consultation/{appointment_id}` |
+| Reschedule | `PATCH /api/consultations/{appointment_id}/reschedule` |
+| Cancel | `PATCH /api/consultations/{appointment_id}/cancel` |
+
+Audio and video specialist consultations (scheduled or priority) use
+`/api/consultations/specialist_consultation`.
+
+**See also:** the
 [consultations guide](https://github.com/hlthstack/integration-guide/blob/main/docs/consultations.md).
 
 ## ePharmacy
@@ -506,23 +596,31 @@ def place_order(medicine_id: int) -> dict[str, Any]:
     return order  # status: confirmed | payment_pending | partner_payment_pending
 ```
 
-Query parameters on ePharmacy endpoints use bracketed names such as
-`customer_details[api_customer_id]`. Prescription-only medicines (`rx_required: true`) need a
-prescription on the cart (`prescription_urls`, or `prescription_files[]` uploaded as
-multipart). `POST /api/epharmacy/orders/payment_details` quotes the amounts before you order.
-In the partner-collected payment flow, confirm the payment with
-`POST /api/epharmacy/orders/{order_id}/confirm`. See the
+- Query parameters on ePharmacy endpoints use bracketed names such as
+  `customer_details[api_customer_id]`.
+- Prescription-only medicines (`rx_required: true`) need a prescription on the cart
+  (`prescription_urls`, or `prescription_files[]` uploaded as multipart).
+- `POST /api/epharmacy/orders/payment_details` quotes the amounts before you order.
+- In the partner-collected payment flow, confirm the payment with
+  `POST /api/epharmacy/orders/{order_id}/confirm`.
+
+**See also:** the
 [ePharmacy guide](https://github.com/hlthstack/integration-guide/blob/main/docs/epharmacy.md).
 
 ## File uploads
 
 Uploads are `multipart/form-data` with **bracketed form field names** exactly as the spec
 defines them. Put the text fields in `data=` and the files in `files=`; repeat a key to send
-several files. Prescription digitization (`POST /api/prescriptions/digitize`) takes exactly
-one customer as `customers[][name]`, `customers[][api_customer_id]`,
-`customers[][mobile_number]`, `customers[][gender]` and `customers[][dob]`, an optional
-`plan_id`, and one or more `files[]` (JPEG, PNG or PDF, each up to 10 MB). From
-[`upload_prescription.py`](../examples/api/upload_prescription.py):
+several files.
+
+Prescription digitization (`POST /api/prescriptions/digitize`) takes:
+
+- exactly one customer as `customers[][name]`, `customers[][api_customer_id]`,
+  `customers[][mobile_number]`, `customers[][gender]` and `customers[][dob]`;
+- an optional `plan_id`;
+- one or more `files[]` (JPEG, PNG or PDF, each up to 10 MB).
+
+From [`upload_prescription.py`](../examples/api/upload_prescription.py):
 
 ```python
 def digitize_prescription(path: str, idempotency_key: str) -> dict[str, Any]:
@@ -553,20 +651,26 @@ def wait_for_digitization(request_id: str) -> dict[str, Any]:
         time.sleep(10)  # or wait for the digitization_results webhook
 ```
 
-Send a unique `Idempotency-Key` per upload so a retry returns the original request instead of
-creating a duplicate. `completed` and `partial` results carry the extracted `items` and a
-ready `cart_id`.
+> [!TIP]
+> Send a unique `Idempotency-Key` per upload so a retry returns the original request instead
+> of creating a duplicate.
 
-Other uploads follow the same pattern: consultation documents
-(`POST /api/consultations/{appointment_id}/upload_documents`, as `files[][name]` +
-`files[][value]` pairs) and cart prescriptions (`PATCH /api/epharmacy/cart` with
-`customer_details[api_customer_id]` and `prescription_files[]`, each under 7 MB).
+`completed` and `partial` results carry the extracted `items` and a ready `cart_id`.
+
+Other uploads follow the same pattern:
+
+| Upload | Call | Files |
+|---|---|---|
+| Consultation documents | `POST /api/consultations/{appointment_id}/upload_documents` | `files[][name]` + `files[][value]` pairs |
+| Cart prescriptions | `PATCH /api/epharmacy/cart` with `customer_details[api_customer_id]` | `prescription_files[]`, each under 7 MB |
 
 ## Pre-registration
 
-Pre-registration registers, updates and deactivates members and their dependants in bulk. It
-has **its own credentials** (an account email and password, separate from the booking API's)
-and its own token:
+Pre-registration registers, updates and deactivates members and their dependants in bulk.
+
+> [!IMPORTANT]
+> It has **its own credentials** (an account email and password, separate from the booking
+> API's) and its own token.
 
 1. `GET /api/pre_registration/access-token` with HTTP Basic auth (the account email as the
    username) returns
@@ -577,9 +681,12 @@ and its own token:
    `API-ENTITY-ID` / `API-SECRET-KEY` headers are not used; each row names its company with
    `company_id`.
 
-A missing, invalid or expired token returns `401` with an empty body, as does any token once
-your company's contract has ended; `403` with an empty body means the account's role may not
-use this API. In `client.py` the same `AccessToken` class handles this token:
+| Status | Body | Meaning |
+|---|---|---|
+| `401` | Empty | A missing, invalid or expired token, or any token once your company's contract has ended |
+| `403` | Empty | The account's role may not use this API |
+
+In `client.py` the same `AccessToken` class handles this token:
 
 ```python
 pre_registration_token = AccessToken(
@@ -600,11 +707,18 @@ def pre_registration_api(method: str, path: str, **kwargs: Any) -> Any:
     )
 ```
 
-Each write takes at most **250 rows** (`employees` and `dependants` together) and returns a
-`request_id`; poll `GET /v1/corporate/pre_registrations/{request_id}/status` until `status`
-is `completed`, then read `success_records` and `failure_records`. On create, **every
-required key must be present in every row**, even when empty: a row missing one is dropped
-silently. From [`pre_registration.py`](../examples/api/pre_registration.py):
+Each write takes at most **250 rows** (`employees` and `dependants` together):
+
+1. The write returns a `request_id`.
+2. Poll `GET /v1/corporate/pre_registrations/{request_id}/status` until `status` is
+   `completed`.
+3. Read `success_records` and `failure_records`.
+
+> [!WARNING]
+> On create, **every required key must be present in every row**, even when empty: a row
+> missing one is dropped silently.
+
+From [`pre_registration.py`](../examples/api/pre_registration.py):
 
 ```python
 MAX_ROWS = 250  # employees + dependants per call
@@ -659,7 +773,7 @@ deactivate = {"employees": ["jane.doe@example.com"]}  # emails; dependants by mo
 wait_for(submit("/v1/corporate/pre_registrations/deactivate", deactivate))
 ```
 
-Field rules, dependants, voluntary plans and row errors are in the
+**See also:** field rules, dependants, voluntary plans and row errors are in the
 [pre-registration guide](https://github.com/hlthstack/integration-guide/blob/main/docs/pre-registration.md).
 
 ## Errors
@@ -716,6 +830,8 @@ def error_messages(body: Any) -> list[str]:
     return messages
 ```
 
+Catch `APIError` for error responses and `requests.RequestException` for network failures:
+
 ```python
 try:
     reschedule("APT1A2B3C4D5", "2030-01-16T02:30:00Z")
@@ -735,20 +851,22 @@ except requests.RequestException as e:  # connection error or timeout: no respon
 | 422 | Business rule or processing failure, or an unexpected error |
 | 5xx | Server error, or a provider's system couldn't be reached |
 
-Retrying:
+### Retrying
 
 - Retry 5xx, 409 and network errors with backoff. Don't retry other 4xx responses unchanged:
   fix the request.
-- **Don't blindly retry booking creation** (`POST /api/appointments` or a consultation
-  create). A timeout doesn't mean the booking failed: check `GET /api/appointments` or your
-  webhooks first.
 - Prescription digitization (with the same `Idempotency-Key`) and partner-payment
   confirmation are safe to retry.
 - Some ePharmacy responses are HTTP 200 with `"success": false` nested inside (for example
   fulfillment options); check those flags.
 
-See [errors](https://github.com/hlthstack/integration-guide/blob/main/docs/errors.md) for the
-common messages and their fixes.
+> [!WARNING]
+> **Don't blindly retry booking creation** (`POST /api/appointments` or a consultation
+> create). A timeout doesn't mean the booking failed: check `GET /api/appointments` or your
+> webhooks first.
+
+**See also:** [errors](https://github.com/hlthstack/integration-guide/blob/main/docs/errors.md)
+for the common messages and their fixes.
 
 ## Validating inputs yourself
 
@@ -772,27 +890,32 @@ input rules yourself. The most important ones:
 
 The full list is in the
 [OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml):
-each request schema encodes the per-field checks (`required`, `enum`, `pattern`,
-`minLength`, `maximum`, `minItems`, ...), and rules that span fields or depend on today's
-date are listed on each operation under `x-hlthstack-rules` (kinds described in
-`x-hlthstack-rule-kinds`). Checks that need stored data (plan benefits, wallet balances,
-slot availability, provider capabilities) are made only by the server.
 
-The SDK runs all of these checks automatically before sending a request and reports every
-problem at once ([SDK validation](sdk-integration.md#validation)).
+- Each request schema encodes the per-field checks (`required`, `enum`, `pattern`,
+  `minLength`, `maximum`, `minItems`, ...).
+- Rules that span fields or depend on today's date are listed on each operation under
+  `x-hlthstack-rules` (kinds described in `x-hlthstack-rule-kinds`).
+- Checks that need stored data (plan benefits, wallet balances, slot availability, provider
+  capabilities) are made only by the server.
+
+> [!TIP]
+> The SDK runs all of these checks automatically before sending a request and reports every
+> problem at once ([SDK validation](sdk-integration.md#validation)).
 
 ## Webhooks
 
 hlthstack POSTs JSON to the URLs you register at onboarding. Every request carries a
-`Signature` header: an HS256 JWT signed with your webhook secret. The JWT has no `exp` claim
-and does **not** cover the body, so check all three:
+`Signature` header: an HS256 JWT signed with your webhook secret.
 
-1. The signature is valid for your secret (HS256 only).
-2. The ids in the claims match the ids in the body: `order_id` and `webhook_type` (= the
-   body's `type`) for pharmacy events, `request_id` for prescription digitization, otherwise
-   `appointment_id` and `booking_id`.
-3. The `timestamp` claim (Unix seconds) is within your tolerance window, 5 minutes here, to
-   block replays.
+> [!CAUTION]
+> The JWT has no `exp` claim and does **not** cover the body, so check all three:
+>
+> 1. The signature is valid for your secret (HS256 only).
+> 2. The ids in the claims match the ids in the body: `order_id` and `webhook_type` (= the
+>    body's `type`) for pharmacy events, `request_id` for prescription digitization, otherwise
+>    `appointment_id` and `booking_id`.
+> 3. The `timestamp` claim (Unix seconds) is within your tolerance window, 5 minutes here, to
+>    block replays.
 
 [`webhook_receiver.py`](../examples/api/webhook_receiver.py) does this with the standard
 library only (no JWT package), and Flask for the endpoint:
@@ -885,14 +1008,22 @@ def webhook() -> tuple[str, int]:
 - Failed deliveries are retried only on connection errors, timeouts and HTTP 408, 502, 503
   and 504. Other non-2xx responses (including 401 and 500) are not retried.
 
-Payload shapes and the claims per event are in the
+**See also:** payload shapes and the claims per event are in the
 [webhooks guide](https://github.com/hlthstack/integration-guide/blob/main/docs/webhooks.md).
 
 ## Moving to the SDK
 
-The SDK wraps everything above: token caching and refresh (including the pre-registration
-token), entity headers, one method per endpoint, multipart uploads from paths or bytes, error
-classes with the messages extracted, input validation and webhook verification.
+The SDK wraps everything above:
+
+- token caching and refresh (including the pre-registration token)
+- entity headers
+- one method per endpoint
+- multipart uploads from paths or bytes
+- error classes with the messages extracted
+- input validation
+- webhook verification
+
+Install it from GitHub:
 
 ```bash
 pip install "git+https://github.com/hlthstack/python"
@@ -909,4 +1040,5 @@ pip install "git+https://github.com/hlthstack/python"
 | `verify_signature(signature, body, secret)` | `hlthstack.webhooks.verify_signature(body, signature, secret)` |
 
 Request and response fields keep their API names, so the dicts you build today carry over.
-See the [SDK integration guide](sdk-integration.md).
+
+**See also:** the [SDK integration guide](sdk-integration.md).
