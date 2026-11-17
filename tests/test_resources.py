@@ -203,10 +203,14 @@ def test_specialist_consultation_flow(router: respx.MockRouter, client: Hlthstac
     client.consultations.list_specialist_providers(package_ids=[3001], default_provider=True)
     assert params(providers) == {"package_ids": "3001", "default_provider": "true"}
     client.consultations.create_specialist(
-        provider_id=3001, customers=[CONSULT_CUSTOMER], priority_consultation=True
+        provider_id=3001,
+        service_mode="audio_call",
+        customers=[CONSULT_CUSTOMER],
+        priority_consultation=True,
     )
     assert body(create) == {
         "provider_id": 3001,
+        "service_mode": "audio_call",
         "customers": [CONSULT_CUSTOMER],
         "priority_consultation": True,
     }

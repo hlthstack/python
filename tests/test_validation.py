@@ -433,6 +433,7 @@ def test_rule_relative_date() -> None:
     body: dict[str, Any] = {
         "provider_id": 1,
         "appointment_date_time": "2026-01-15T02:30:00Z",
+        "service_mode": "at_provider_location",
         "customers": [{**CUSTOMER, "dob": "2025-01-01"}, {**CUSTOMER, "api_customer_id": "C2"}],
         "address": ADDRESS,
     }
@@ -444,7 +445,12 @@ def test_rule_relative_date() -> None:
         ("appointment_date_time", "relative_date"),
     }
     # Priority consultations need no time.
-    specialist = {"provider_id": 1, "customers": [CUSTOMER], "priority_consultation": True}
+    specialist = {
+        "provider_id": 1,
+        "service_mode": "audio_call",
+        "customers": [CUSTOMER],
+        "priority_consultation": True,
+    }
     assert _errors("createSpecialistConsultation", json=specialist) == set()
     specialist["appointment_date_time"] = "2025-01-01T00:00:00Z"
     assert _errors("createSpecialistConsultation", json=specialist) == set()
@@ -640,12 +646,14 @@ CASES = [
         {
             "provider_id": 2001,
             "appointment_date_time": "2026-01-15T04:30:00.000Z",
+            "service_mode": "at_provider_location",
             "customers": [CUSTOMER],
             "address": ADDRESS,
         },
         {
             "provider_id": 2001,
             "appointment_date_time": "2025-12-31T23:59:59Z",
+            "service_mode": "at_provider_location",
             "customers": [{**CUSTOMER, "dob": "2025-06-01"}],
             "address": {k: v for k, v in ADDRESS.items() if k != "pincode"},
         },
@@ -658,9 +666,18 @@ CASES = [
     Case(
         "consultations.create_specialist",
         (),
-        {"provider_id": 3001, "customers": [CUSTOMER], "priority_consultation": True},
+        {
+            "provider_id": 3001,
+            "service_mode": "audio_call",
+            "customers": [CUSTOMER],
+            "priority_consultation": True,
+        },
         {"provider_id": 3001, "customers": [CUSTOMER, CUSTOMER], "priority_consultation": False},
-        {("appointment_date_time", "required_if"), ("customers[1].api_customer_id", "unique_by")},
+        {
+            ("appointment_date_time", "required_if"),
+            ("customers[1].api_customer_id", "unique_by"),
+            ("service_mode", "required"),
+        },
     ),
     Case(
         "consultations.reschedule",

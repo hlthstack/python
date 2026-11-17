@@ -770,7 +770,13 @@ OPERATIONS: dict[str, Any] = {
         "body": {
             "application/json": {
                 "type": "object",
-                "required": ["provider_id", "appointment_date_time", "customers", "address"],
+                "required": [
+                    "provider_id",
+                    "appointment_date_time",
+                    "service_mode",
+                    "customers",
+                    "address",
+                ],
                 "properties": {
                     "appointment_date_time": {"type": "string", "format": "date-time"},
                     "service_mode": {"type": "string", "enum": ["at_provider_location"]},
@@ -886,7 +892,7 @@ OPERATIONS: dict[str, Any] = {
         "body": {
             "application/json": {
                 "type": "object",
-                "required": ["provider_id", "customers"],
+                "required": ["provider_id", "service_mode", "customers"],
                 "properties": {
                     "appointment_date_time": {"type": "string", "format": "date-time"},
                     "service_mode": {"type": "string", "enum": ["audio_call", "video_call"]},
