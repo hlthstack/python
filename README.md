@@ -60,8 +60,9 @@ with Hlthstack(
     password=os.environ["HLTHSTACK_PASSWORD"],
     environment="staging",
 ) as client:
+    # Use the package id and plan id issued to you at onboarding.
     providers = client.appointments.list_providers(
-        service_name="ahc", package_ids=[1001], pincode="500081"
+        service_name="ahc", package_ids=[YOUR_PACKAGE_ID], plan_id="YOUR_PLAN_ID", pincode="500081"
     )
     for provider in providers["providers"]:
         print(provider["provider_id"], provider["provider_name"])
