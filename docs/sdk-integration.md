@@ -18,13 +18,13 @@ REST API reference and guides: https://github.com/hlthstack/integration-guide
 Install the library straight from this GitHub repository:
 
 ```bash
-pip install "git+https://github.com/hlthstack/python@v1.0.0"
+pip install "git+https://github.com/hlthstack/python@v1.0.1"
 ```
 
 In `requirements.txt`:
 
 ```text
-hlthstack @ git+https://github.com/hlthstack/python@v1.0.0
+hlthstack @ git+https://github.com/hlthstack/python@v1.0.1
 ```
 
 Pin a release tag, as above, so your builds are reproducible. Releases and their changes
