@@ -25,10 +25,12 @@ python examples/api/book_health_checkup.py
 ```
 
 The scripts default to staging and read their configuration from environment variables
-(listed at the top of `client.py`). Every request and response field is defined in the
-[OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml);
+(listed at the top of `client.py`). Every request and response field is in the
+[API reference](https://developers.hlthstack.io) (built from the
+[OpenAPI spec](https://github.com/hlthstack/integration-guide/blob/main/openapi/openapi.yaml));
 the [integration guide](https://github.com/hlthstack/integration-guide/tree/main/docs) explains
-each flow in depth.
+each flow in depth. To try a call before writing code, use the [Postman docs](https://documenter.getpostman.com/view/32733686/2sBYHbqvwh): choose
+**Run in Postman**, pick the staging environment and enter your credentials.
 
 ## Environments
 
