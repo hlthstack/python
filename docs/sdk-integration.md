@@ -18,20 +18,17 @@ REST API reference and guides: https://github.com/hlthstack/integration-guide
 Install the library straight from this GitHub repository:
 
 ```bash
-pip install "git+https://github.com/hlthstack/python"
+pip install "git+https://github.com/hlthstack/python@v1.0.0"
 ```
 
-Pin a release tag or a commit so your builds are reproducible:
-
-```bash
-pip install "git+https://github.com/hlthstack/python@<tag-or-commit>"
-```
-
-In `requirements.txt` (append `@<tag-or-commit>` to pin):
+In `requirements.txt`:
 
 ```text
-hlthstack @ git+https://github.com/hlthstack/python
+hlthstack @ git+https://github.com/hlthstack/python@v1.0.0
 ```
+
+Pin a release tag, as above, so your builds are reproducible. Releases and their changes
+are listed in [CHANGELOG.md](../CHANGELOG.md).
 
 The same `hlthstack @ git+https://...` form works in `pyproject.toml` dependencies. A PyPI
 release (`pip install hlthstack`) may follow later; until then, install from GitHub.

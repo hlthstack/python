@@ -28,10 +28,10 @@ Both talk to the same API, so you can start with one and move to the other.
 ## SDK quickstart
 
 ```bash
-pip install "git+https://github.com/hlthstack/python"
+pip install "git+https://github.com/hlthstack/python@v1.0.0"
 ```
 
-Pin a tag or commit for reproducible builds: `git+https://github.com/hlthstack/python@<tag>`.
+Releases and their changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ```python
 import os
